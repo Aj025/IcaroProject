@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  admin
+  estimator
+  pm
+}
+
+enum TenderStatus {
+  Pricing
+  Tendering
+  Issued
+  Won
+  Lost
+  Withdrawn
+}
+
+model Profile {
+  id           String   @id
+  email        String   @unique
+  fullName     String?
+  passwordHash String?
+  role         Role
+  permissions  Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tendersAssigned Tender[] @relation("AssignedEstimator")
+  tendersCreated  Tender[] @relation("CreatedBy")
+}
+
+model Tender {
+  id                   String       @id @default(uuid())
+  client               String
+  job                  String
+  received             DateTime
+  due                  DateTime
+  status               TenderStatus @default(Pricing)
+  contractSum          Decimal?     @db.Decimal(12, 2)
+
+  assignedEstimatorId  String?
+  assignedEstimator    Profile?     @relation("AssignedEstimator", fields: [assignedEstimatorId], references: [id])
+  estimateRequestedAt  DateTime?
+  estimatedById        String?
+  estimatedAt          DateTime?
+  lastReminderSentAt   DateTime?
+  sourceEmailId        String?      @unique
+  needsReview          Boolean      @default(false)
+
+  email                String?
+
+  isSigned             Boolean      @default(false)
+  isDeleted            Boolean      @default(false)
+  deletedAt            DateTime?
+
+  createdById          String?
+  createdBy            Profile?     @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  auditLogs AuditLog[]
+
+  @@index([status])
+  @@index([due])
+  @@index([isDeleted])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  entityType  String
+  entityId    String
+  field       String
+  oldValue    String?
+  newValue    String?
+  changedById String
+  changedAt   DateTime @default(now())
+
+  tender Tender? @relation(fields: [entityId], references: [id])
+
+  @@index([entityType, entityId])
+}
