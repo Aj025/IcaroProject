@@ -9,9 +9,13 @@ import { PrismaService } from './prisma/prisma.service.js';
 import { SupabaseJwtStrategy } from './modules/auth/supabase-jwt.strategy.js';
 import { AuthGuard } from './common/guards/auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
+import { RolesGuard } from './common/guards/roles.guard.js';
 import { HealthController } from './modules/health/health.controller.js';
 import { TendersModule } from './modules/tenders/tenders.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { SuppliersModule } from './modules/suppliers/suppliers.module.js';
+import { DropboxModule } from './modules/integrations/dropbox/dropbox.module.js';
+import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 
 @Module({
   imports: [
@@ -25,9 +29,12 @@ import { AuthModule } from './modules/auth/auth.module.js';
     TerminusModule,
     TendersModule,
     AuthModule,
+    SuppliersModule,
+    DropboxModule,
+    DashboardModule,
   ],
   controllers: [HealthController],
-  providers: [PrismaService, SupabaseJwtStrategy, AuthGuard, PermissionsGuard],
+  providers: [PrismaService, SupabaseJwtStrategy, AuthGuard, PermissionsGuard, RolesGuard],
   exports: [PrismaService],
 })
 export class AppModule {}

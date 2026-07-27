@@ -22,6 +22,23 @@ enum TenderStatus {
   Withdrawn
 }
 
+enum Trade {
+  Groundworks
+  Electrical
+  Plumbing
+  Roofing
+  Joinery
+  Plastering
+  Other
+}
+
+enum CisStatus {
+  Registered
+  Verified
+  Gross
+  Unregistered
+}
+
 model Profile {
   id           String   @id
   email        String   @unique
@@ -37,33 +54,33 @@ model Profile {
 }
 
 model Tender {
-  id                   String       @id @default(uuid())
-  client               String
-  job                  String
-  received             DateTime
-  due                  DateTime
-  status               TenderStatus @default(Pricing)
-  contractSum          Decimal?     @db.Decimal(12, 2)
+  id          String       @id @default(uuid())
+  client      String
+  job         String
+  received    DateTime
+  due         DateTime
+  status      TenderStatus @default(Pricing)
+  contractSum Decimal?     @db.Decimal(12, 2)
 
-  assignedEstimatorId  String?
-  assignedEstimator    Profile?     @relation("AssignedEstimator", fields: [assignedEstimatorId], references: [id])
-  estimateRequestedAt  DateTime?
-  estimatedById        String?
-  estimatedAt          DateTime?
-  lastReminderSentAt   DateTime?
-  sourceEmailId        String?      @unique
-  needsReview          Boolean      @default(false)
+  assignedEstimatorId String?
+  assignedEstimator   Profile?  @relation("AssignedEstimator", fields: [assignedEstimatorId], references: [id])
+  estimateRequestedAt DateTime?
+  estimatedById       String?
+  estimatedAt         DateTime?
+  lastReminderSentAt  DateTime?
+  sourceEmailId       String?   @unique
+  needsReview         Boolean   @default(false)
 
-  email                String?
+  email String?
 
-  isSigned             Boolean      @default(false)
-  isDeleted            Boolean      @default(false)
-  deletedAt            DateTime?
+  isSigned  Boolean   @default(false)
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
 
-  createdById          String?
-  createdBy            Profile?     @relation("CreatedBy", fields: [createdById], references: [id])
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  createdById String?
+  createdBy   Profile? @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   auditLogs AuditLog[]
 
@@ -85,4 +102,111 @@ model AuditLog {
   tender Tender? @relation(fields: [entityId], references: [id])
 
   @@index([entityType, entityId])
+}
+
+model Supplier {
+  id       String @id @default(cuid())
+  tenantId String
+
+  company    String
+  trade      Trade
+  contact    String
+  phone      String   @default("")
+  email      String   @default("")
+  note       String   @default("")
+  projectIds String[]
+  usedBefore Boolean  @default(false)
+
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime?
+
+  ramsUrl         String?
+  ramsExpiry      DateTime?
+  insuranceUrl    String?
+  insuranceExpiry DateTime?
+  cisStatus       CisStatus @default(Unregistered)
+  cisExpiry       DateTime?
+
+  dropboxAccountId  String?
+  dropboxFolderPath String?
+  dropboxLinks      DropboxLink[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents SupplierDocument[]
+
+  @@index([tenantId, isDeleted])
+  @@index([trade])
+  @@index([company])
+  @@map("suppliers")
+}
+
+model SupplierDocument {
+  id         String   @id @default(cuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  dropboxPath String
+  dropboxLink String
+  dropboxRev  String?
+  category    String
+
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+
+  @@index([supplierId])
+  @@map("supplier_documents")
+}
+
+model DropboxLink {
+  id         String   @id @default(cuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  dropboxPath String
+  dropboxUrl  String
+  fileName    String
+  fileSize    Int?
+  mimeType    String?
+  description String?
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+
+  @@index([supplierId])
+  @@map("dropbox_links")
+}
+
+model DropboxToken {
+  id             String    @id @default(cuid())
+  tenantId       String
+  userId         String
+  accountId      String
+  accountEmail   String?
+  accessToken    String
+  refreshToken   String?
+  tokenExpiry    DateTime?
+  connectedAt    DateTime  @default(now())
+  disconnectedAt DateTime?
+
+  @@index([tenantId, userId])
+  @@map("dropbox_tokens")
+}
+
+model DashboardLayout {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
+  widgets Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@map("dashboard_layouts")
 }

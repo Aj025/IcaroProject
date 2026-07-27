@@ -54,9 +54,9 @@
 
 ### Backend Persistence (post-API)
 
-- [ ] **Create `dashboard_layout` table** — Supabase/Postgres table: `user_id`, `layout` (JSON: widget ID, colSpan, rowSpan, position)
-- [ ] **Add `saveDashboardLayout` / `loadDashboardLayout` hooks** — Fetch/save layout from API on mount and after every resize/add/remove/reorder
-- [ ] **Server-side validation of layout** — API validates spans are within MIN/MAX bounds before saving
+- [x] **Create `dashboard_layout` table** — Supabase/Postgres table: `user_id`, `layout` (JSON: widget ID, colSpan, rowSpan, position)
+- [x] **Add `saveDashboardLayout` / `loadDashboardLayout` hooks** — Fetch/save layout from API on mount and after every resize/add/remove/reorder
+- [x] **Server-side validation of layout** — API validates spans are within MIN/MAX bounds before saving
 
 ---
 
