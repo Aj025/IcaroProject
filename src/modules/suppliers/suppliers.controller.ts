@@ -88,6 +88,12 @@ export class SuppliersController {
     return this.suppliersService.softDelete(id, user.id);
   }
 
+  @Delete(':id/permanent')
+  @Roles('admin')
+  permanentDelete(@Param('id') id: string) {
+    return this.suppliersService.permanentDelete(id);
+  }
+
   @Post(':id/restore')
   @Roles('admin')
   restore(

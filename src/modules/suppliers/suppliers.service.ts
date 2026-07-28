@@ -172,6 +172,19 @@ export class SuppliersService {
     return SupplierDetailDto.fromEntity(updated as unknown as SupplierEntity);
   }
 
+  async permanentDelete(id: string) {
+    const existing = await this.db.supplier.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Supplier not found');
+    if (!existing.isDeleted) {
+      throw new ConflictException('Soft-delete the supplier first');
+    }
+
+    await this.db.auditLog.deleteMany({
+      where: { entityId: id, entityType: 'Supplier' },
+    });
+    await this.db.supplier.delete({ where: { id } });
+  }
+
   async restore(id: string, userId: string) {
     const existing = await this.db.supplier.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Supplier not found');

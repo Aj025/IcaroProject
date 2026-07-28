@@ -5,11 +5,15 @@ import {
   DEFAULT_LAYOUT,
   type WidgetInstance,
 } from './constants/default-layout.js';
-import { isKnownWidgetId } from './constants/widget-catalog.js';
+import {
+  WIDGET_CATALOG,
+  isKnownWidgetId,
+} from './constants/widget-catalog.js';
 import type { SaveLayoutDto } from './dto/save-layout.dto.js';
 import {
   LayoutResponseDto,
   ResetLayoutResponseDto,
+  type CatalogEntry,
 } from './dto/layout-response.dto.js';
 
 @Injectable()
@@ -27,27 +31,30 @@ export class DashboardService {
   }
 
   async getLayout(user: AuthenticatedUser): Promise<LayoutResponseDto> {
-    const existing = await this.db.dashboardLayout.findUnique({
-      where: {
-        tenantId_userId: {
-          tenantId: this.tenantId(),
-          userId: user.id,
+    const [existing, catalog] = await Promise.all([
+      this.db.dashboardLayout.findUnique({
+        where: {
+          tenantId_userId: {
+            tenantId: this.tenantId(),
+            userId: user.id,
+          },
         },
-      },
-    });
+      }),
+      this.buildCatalog(user),
+    ]);
 
     if (!existing) {
-      return LayoutResponseDto.fromWidgets(DEFAULT_LAYOUT);
+      return LayoutResponseDto.fromWidgets(DEFAULT_LAYOUT, catalog);
     }
 
     const stored = (existing.widgets as unknown as WidgetInstance[]) ?? [];
     const cleaned = this.stripUnknownWidgets(stored, user.id);
 
     if (stored.length > 0 && cleaned.length === 0) {
-      return LayoutResponseDto.fromWidgets(DEFAULT_LAYOUT);
+      return LayoutResponseDto.fromWidgets(DEFAULT_LAYOUT, catalog);
     }
 
-    return LayoutResponseDto.fromWidgets(cleaned);
+    return LayoutResponseDto.fromWidgets(cleaned, catalog);
   }
 
   async saveLayout(
@@ -88,10 +95,14 @@ export class DashboardService {
       },
     });
 
-    return LayoutResponseDto.fromEntity({
-      ...saved,
-      widgets: saved.widgets as unknown as WidgetInstance[],
-    });
+    const catalog = await this.buildCatalog(user);
+    return LayoutResponseDto.fromEntity(
+      {
+        ...saved,
+        widgets: saved.widgets as unknown as WidgetInstance[],
+      },
+      catalog,
+    );
   }
 
   async resetLayout(
@@ -124,7 +135,42 @@ export class DashboardService {
       });
     }
 
-    return ResetLayoutResponseDto.fromWidgets(DEFAULT_LAYOUT, true);
+    const catalog = await this.buildCatalog(user);
+    return ResetLayoutResponseDto.fromWidgets(DEFAULT_LAYOUT, catalog, true);
+  }
+
+  private async buildCatalog(user: AuthenticatedUser): Promise<CatalogEntry[]> {
+    const activeIds = new Set<string>();
+
+    const layout = await this.db.dashboardLayout.findUnique({
+      where: {
+        tenantId_userId: {
+          tenantId: this.tenantId(),
+          userId: user.id,
+        },
+      },
+    });
+
+    if (layout) {
+      const widgets = layout.widgets as unknown as WidgetInstance[];
+      for (const w of widgets) {
+        activeIds.add(w.id);
+      }
+    }
+
+    const connectedIntegrations = new Set<string>();
+    const dropboxToken = await this.db.dropboxToken.findFirst({
+      where: { tenantId: this.tenantId(), userId: user.id },
+    });
+    if (dropboxToken) {
+      connectedIntegrations.add('Dropbox');
+    }
+
+    return WIDGET_CATALOG.map((entry) => ({
+      ...entry,
+      available: !entry.requires || connectedIntegrations.has(entry.requires),
+      active: activeIds.has(entry.id),
+    }));
   }
 
   private stripUnknownWidgets(

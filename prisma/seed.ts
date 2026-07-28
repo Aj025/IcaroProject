@@ -11,7 +11,19 @@ const PASSWORD = bcrypt.hashSync('password123', 10);
 async function main() {
   const admin = await prisma.profile.upsert({
     where: { id: '00000000-0000-0000-0000-000000000001' },
-    update: {},
+    update: {
+      permissions: {
+        Financials: true,
+        Tenders: true,
+        Variations: true,
+        RFIs: true,
+        Valuations: true,
+        Risks: true,
+        'Brain Dump': true,
+        'Issue to client': true,
+        Suppliers: true,
+      },
+    },
     create: {
       id: '00000000-0000-0000-0000-000000000001',
       email: 'rob@icaroprojects.com',
@@ -27,13 +39,26 @@ async function main() {
         Risks: true,
         'Brain Dump': true,
         'Issue to client': true,
+        Suppliers: true,
       },
     },
   });
 
   const estimator = await prisma.profile.upsert({
     where: { id: '00000000-0000-0000-0000-000000000002' },
-    update: {},
+    update: {
+      permissions: {
+        Financials: true,
+        Tenders: true,
+        Variations: true,
+        RFIs: true,
+        Valuations: true,
+        Risks: true,
+        'Brain Dump': true,
+        'Issue to client': true,
+        Suppliers: true,
+      },
+    },
     create: {
       id: '00000000-0000-0000-0000-000000000002',
       email: 'maria@icaroprojects.com',
@@ -49,13 +74,25 @@ async function main() {
         Risks: true,
         'Brain Dump': true,
         'Issue to client': true,
+        Suppliers: true,
       },
     },
   });
 
   const pm = await prisma.profile.upsert({
     where: { id: '00000000-0000-0000-0000-000000000003' },
-    update: {},
+    update: {
+      permissions: {
+        Financials: false,
+        Tenders: true,
+        Variations: true,
+        RFIs: true,
+        Valuations: false,
+        Risks: true,
+        'Brain Dump': true,
+        'Issue to client': false,
+      },
+    },
     create: {
       id: '00000000-0000-0000-0000-000000000003',
       email: 'pm@icaroprojects.com',

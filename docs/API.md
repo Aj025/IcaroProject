@@ -521,6 +521,18 @@ Soft-delete (sets `isDeleted = true`, `deletedAt = now()`).
 
 ---
 
+#### `DELETE /suppliers/:id/permanent` (Admin only)
+
+Permanently delete a supplier and all its audit logs. Only works on already soft-deleted suppliers.
+
+- **404** if not found.
+- **409** if the supplier hasn't been soft-deleted first (safety measure).
+- Related `SupplierDocument` and `DropboxLink` records are cascade-deleted automatically.
+
+**Response:** `204 No Content`.
+
+---
+
 #### `POST /suppliers/:id/restore` (Admin only)
 
 Restore a soft-deleted supplier.
@@ -727,7 +739,7 @@ All endpoints require `Authorization: Bearer <jwt>`. All authenticated users can
 
 #### `GET /dashboard/layout`
 
-Returns the current user's widget layout. If no saved row exists, returns the server-defined `DEFAULT_LAYOUT`. Unknown widget IDs in a saved row are stripped silently and logged; if every entry is unknown the defaults are returned instead. A saved empty layout (`widgets: []`) is returned as-is — the dashboard's empty state.
+Returns the current user's widget layout and the full widget catalog. If no saved row exists, returns the server-defined `DEFAULT_LAYOUT`. Unknown widget IDs in a saved row are stripped silently and logged; if every entry is unknown the defaults are returned instead. A saved empty layout (`widgets: []`) is returned as-is — the dashboard's empty state.
 
 **Response `200 OK`:**
 ```json
@@ -735,9 +747,38 @@ Returns the current user's widget layout. If no saved row exists, returns the se
   "widgets": [
     { "id": "cash-at-risk", "colSpan": 4, "rowSpan": 2 },
     { "id": "ceo-actions",  "colSpan": 4, "rowSpan": 2 }
+  ],
+  "catalog": [
+    {
+      "id": "cash-at-risk",
+      "group": "Financials",
+      "name": "Cash at risk",
+      "desc": "Total overdue client cash by project.",
+      "available": true,
+      "active": true
+    },
+    {
+      "id": "dropbox-revisions",
+      "group": "Integrations",
+      "name": "Dropbox — recent revisions",
+      "desc": "New drawings synced from Dropbox.",
+      "requires": "Dropbox",
+      "available": false,
+      "active": false
+    }
   ]
 }
 ```
+
+| Catalog field | Type | Description |
+|---|---|---|
+| `id` | `string` | Widget identifier (matches `WIDGET_CATALOG_IDS`) |
+| `group` | `string` | Grouping category: `Financials`, `Actions`, `Tenders`, `Projects`, or `Integrations` |
+| `name` | `string` | Display name for the widget |
+| `desc` | `string` | Short description of what the widget shows |
+| `requires` | `string?` | Integration required (e.g. `"Dropbox"`). Absent if no integration needed |
+| `available` | `boolean` | Whether the required integration is connected (`true` if no `requires` or integration is connected) |
+| `active` | `boolean` | Whether the widget is currently in the user's layout |
 
 ---
 
@@ -774,7 +815,7 @@ tender-snapshot, live-projects,
 docusign, dropbox-revisions, gmail-tenders
 ```
 
-**Response `200 OK`:** the saved layout (same shape as `GET`).
+**Response `200 OK`:** the saved layout with widget catalog (same shape as `GET`).
 
 On save, an audit log entry is written:
 ```
@@ -794,6 +835,9 @@ Deletes the current user's saved layout row. Subsequent `GET` calls return the s
 {
   "widgets": [
     { "id": "cash-at-risk", "colSpan": 4, "rowSpan": 2 }
+  ],
+  "catalog": [
+    { "id": "cash-at-risk", "group": "Financials", "name": "Cash at risk", "desc": "...", "available": true, "active": true }
   ],
   "reset": true,
   "message": "Layout reset to defaults"
@@ -927,6 +971,7 @@ Unique: `[tenantId, userId]` · Index: `[tenantId]` · Table: `dashboard_layouts
 | `GET /suppliers/:id` | ✅ | ✅ | ✅ |
 | `PUT /suppliers/:id` | ✅ | ✅ | ✅ |
 | `DELETE /suppliers/:id` | ✅ | ❌ | ❌ |
+| `DELETE /suppliers/:id/permanent` | ✅ | ❌ | ❌ |
 | `POST .../restore` | ✅ | ❌ | ❌ |
 | `POST .../merge` | ✅ | ❌ | ❌ |
 | `POST .../dropbox/upload` | ✅ | ✅ | ✅ |
