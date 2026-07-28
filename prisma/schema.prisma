@@ -58,7 +58,7 @@ model Tender {
   client      String
   job         String
   received    DateTime
-  due         DateTime
+  due         DateTime?
   status      TenderStatus @default(Pricing)
   contractSum Decimal?     @db.Decimal(12, 2)
 

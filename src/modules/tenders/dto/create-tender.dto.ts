@@ -26,8 +26,9 @@ export class CreateTenderDto {
   @IsDateString()
   received!: string;
 
+  @IsOptional()
   @IsDateString()
-  due!: string;
+  due?: string;
 
   @IsEnum(TenderStatusEnum)
   @IsOptional()

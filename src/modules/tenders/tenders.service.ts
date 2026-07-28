@@ -17,7 +17,7 @@ export interface SnapshotItem {
   id: string;
   client: string;
   job: string;
-  due: string;
+  due: string | null;
   status: string;
   contractSum: number | null;
   isSigned: boolean;
@@ -40,7 +40,7 @@ export class TendersService {
         job: dto.job,
         email: dto.email,
         received: new Date(dto.received),
-        due: new Date(dto.due),
+        due: dto.due ? new Date(dto.due) : null,
         status: dto.status ?? 'Pricing',
         contractSum: dto.contractSum,
         createdById: userId,
@@ -244,12 +244,12 @@ export class TendersService {
     });
 
     return (tenders as unknown as TenderEntity[]).map((t) => {
-      const dueDate = new Date(t.due);
+      const dueDate = t.due ? new Date(t.due) : null;
       return {
         id: t.id,
         client: t.client,
         job: t.job,
-        due: dueDate.toISOString(),
+        due: dueDate?.toISOString() ?? null,
         status: t.status,
         contractSum:
           t.contractSum != null
@@ -258,8 +258,8 @@ export class TendersService {
               : (t.contractSum as number)
             : null,
         isSigned: t.isSigned,
-        overdue: dueDate < now,
-        dueSoon: dueDate >= now && dueDate <= twoDaysFromNow,
+        overdue: dueDate != null && dueDate < now,
+        dueSoon: dueDate != null && dueDate >= now && dueDate <= twoDaysFromNow,
       };
     });
   }

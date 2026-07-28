@@ -17,7 +17,7 @@ export interface TenderEntity {
   job: string;
   email: string | null;
   received: Date;
-  due: Date;
+  due: Date | null;
   status: string;
   contractSum?: unknown;
   isSigned: boolean;
@@ -52,7 +52,7 @@ export class TenderResponseDto {
     dto.job = tender.job;
     dto.email = tender.email ?? '';
     dto.received = toISOOrString(tender.received);
-    dto.due = toISOOrString(tender.due);
+    dto.due = tender.due ? toISOOrString(tender.due) : '';
     dto.status = tender.status;
     dto.contractSum = includeContractSum
       ? toNumberOrNull(tender.contractSum)

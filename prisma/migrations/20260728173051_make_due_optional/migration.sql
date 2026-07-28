@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Tender" ALTER COLUMN "due" DROP NOT NULL;
