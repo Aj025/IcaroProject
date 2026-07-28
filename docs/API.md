@@ -42,6 +42,33 @@ Authorization: Bearer <jwt>
 
 The server accepts JWTs signed with either `JWT_SECRET` (local login) or `SUPABASE_JWT_SECRET` (Supabase Auth). Tokens are verified via HS256. Role and permissions are fetched fresh from the `Profile` DB table on every request — never from the JWT itself.
 
+### Register
+
+```
+POST /auth/register
+```
+
+```json
+{
+  "email": "user@example.com",
+  "password": "min-8-chars",
+  "fullName": "Jane Doe"
+}
+```
+
+- `email` — required
+- `password` — required, min 8 characters
+- `fullName` — optional
+
+Creates a profile with `role: "estimator"` and `permissions: []`. To promote to admin, update the DB directly.
+
+**Response (201):**
+```json
+{
+  "access_token": "<jwt>"
+}
+```
+
 ### Login
 
 ```
