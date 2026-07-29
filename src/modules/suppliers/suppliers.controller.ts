@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Put,
   Delete,
   Body,
@@ -71,7 +72,7 @@ export class SuppliersController {
     return this.suppliersService.findOne(id);
   }
 
-  @Put(':id')
+  @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateSupplierDto,

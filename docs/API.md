@@ -550,7 +550,7 @@ Get a single supplier with documents and Dropbox links.
 
 ---
 
-#### `PUT /suppliers/:id`
+#### `PATCH /suppliers/:id`
 
 Update an existing supplier. All fields optional (PATCH semantics).
 
