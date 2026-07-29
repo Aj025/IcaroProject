@@ -34,6 +34,17 @@ export class TendersService {
   }
 
   async create(dto: CreateTenderDto, userId: string) {
+    if (dto.sourceEmailId) {
+      const existing = await this.db.tender.findUnique({
+        where: { sourceEmailId: dto.sourceEmailId },
+      });
+      if (existing) {
+        throw new ConflictException(
+          'A tender with this sourceEmailId already exists',
+        );
+      }
+    }
+
     const tender = await this.db.tender.create({
       data: {
         client: dto.client,
@@ -43,6 +54,7 @@ export class TendersService {
         due: dto.due ? new Date(dto.due) : null,
         status: dto.status ?? 'Pricing',
         contractSum: dto.contractSum,
+        sourceEmailId: dto.sourceEmailId,
         createdById: userId,
       },
     });
@@ -262,5 +274,14 @@ export class TendersService {
         dueSoon: dueDate != null && dueDate >= now && dueDate <= twoDaysFromNow,
       };
     });
+  }
+
+  async checkSourceEmailExists(
+    sourceEmailId: string,
+  ): Promise<{ exists: boolean }> {
+    const tender = await this.db.tender.findUnique({
+      where: { sourceEmailId },
+    });
+    return { exists: !!tender };
   }
 }

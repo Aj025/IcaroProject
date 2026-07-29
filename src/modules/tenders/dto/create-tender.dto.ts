@@ -42,4 +42,8 @@ export class CreateTenderDto {
   @Min(0)
   @IsOptional()
   contractSum?: number;
+
+  @IsString()
+  @IsOptional()
+  sourceEmailId?: string;
 }

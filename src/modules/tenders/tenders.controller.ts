@@ -49,6 +49,11 @@ export class TendersController {
     return this.tendersService.getSnapshot();
   }
 
+  @Get('check-source-email')
+  checkSourceEmail(@Query('sourceEmailId') sourceEmailId: string) {
+    return this.tendersService.checkSourceEmailExists(sourceEmailId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tendersService.findOne(id);

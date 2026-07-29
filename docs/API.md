@@ -130,13 +130,15 @@ Create a new tender.
   "due": "2026-08-15T00:00:00.000Z",
   "status": "Pricing",
   "contractSum": 50000,
-  "email": "client@acme.com"
+  "email": "client@acme.com",
+  "sourceEmailId": "abc123"
 }
 ```
 
 - `status`: optional, defaults to `Pricing`. Enums: `Pricing`, `Tendering`, `Issued`, `Won`, `Lost`, `Withdrawn`
 - `contractSum`: optional, >= 0
 - `email`: optional string — client contact email
+- `sourceEmailId`: optional string — Gmail message ID for deduplication. Returns **409 Conflict** if already exists.
 - `createdById`: auto-set from authenticated user
 
 **Response (201):** `TenderResponseDto`
@@ -185,6 +187,22 @@ Dashboard snapshot — first 10 non-deleted tenders ordered by `due` ascending, 
 Get a single tender by ID.
 
 **Response (200):** `TenderResponseDto` (includes `assignedEstimator` and `createdBy` relations)
+
+---
+
+#### `GET /tenders/check-source-email`
+Check if a `sourceEmailId` is already taken.
+
+| Query          | Type   | Description                    |
+|----------------|--------|--------------------------------|
+| `sourceEmailId` | string | The Gmail message ID to check  |
+
+**Response (200):**
+```json
+{ "exists": true }
+```
+
+**Response (409):** never — a 409 means the ID is taken, which is just `{ exists: true }`. This endpoint only returns 200.
 
 ---
 
