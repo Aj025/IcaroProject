@@ -11,6 +11,10 @@ export class UpdateTenderDto {
 
   @IsDateString()
   @IsOptional()
+  received?: string;
+
+  @IsDateString()
+  @IsOptional()
   due?: string;
 
   @IsString()

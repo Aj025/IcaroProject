@@ -123,6 +123,7 @@ export class TendersService {
         ...(dto.client !== undefined && { client: dto.client }),
         ...(dto.job !== undefined && { job: dto.job }),
         ...(dto.email !== undefined && { email: dto.email }),
+        ...(dto.received !== undefined && { received: new Date(dto.received) }),
         ...(dto.due !== undefined && { due: new Date(dto.due) }),
       },
     });

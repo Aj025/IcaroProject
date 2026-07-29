@@ -207,18 +207,19 @@ Check if a `sourceEmailId` is already taken.
 ---
 
 #### `PATCH /tenders/:id`
-Update client, job, or due date.
+Update tender fields.
 
 ```json
 {
   "client": "New Corp",
   "job": "Updated job",
+  "received": "2026-07-25T00:00:00.000Z",
   "due": "2026-09-01T00:00:00.000Z",
   "email": "new@corp.com"
 }
 ```
 
-All fields optional (`email` included).
+All fields optional.
 
 **Response (200):** `TenderResponseDto`
 
