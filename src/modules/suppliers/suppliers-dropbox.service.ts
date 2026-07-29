@@ -27,10 +27,20 @@ export class SuppliersDropboxService {
     return this.prismaService.prisma;
   }
 
-  private getDropboxToken(): { accessToken: string } | null {
-    const token = process.env.DROPBOX_ACCESS_TOKEN;
-    if (!token) return null;
-    return { accessToken: token };
+  private async getDropboxToken(userId?: string): Promise<{ accessToken: string } | null> {
+    const envToken = process.env.DROPBOX_ACCESS_TOKEN;
+    if (envToken) return { accessToken: envToken };
+
+    if (!userId) return null;
+
+    const dbToken = await this.db.dropboxToken.findFirst({
+      where: { userId, disconnectedAt: null },
+      orderBy: { connectedAt: 'desc' },
+    });
+
+    if (!dbToken) return null;
+
+    return { accessToken: dbToken.accessToken };
   }
 
   async uploadFile(
@@ -58,7 +68,7 @@ export class SuppliersDropboxService {
       throw new BadRequestException('File exceeds maximum size of 50 MB');
     }
 
-    const dropboxToken = this.getDropboxToken();
+    const dropboxToken = await this.getDropboxToken(userId);
     if (!dropboxToken) {
       throw new BadRequestException({
         needsAuth: true,
