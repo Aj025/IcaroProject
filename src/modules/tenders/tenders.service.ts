@@ -55,6 +55,7 @@ export class TendersService {
         status: dto.status ?? 'Pricing',
         contractSum: dto.contractSum,
         sourceEmailId: dto.sourceEmailId,
+        estimateRequestedAt: new Date(),
         createdById: userId,
       },
     });
