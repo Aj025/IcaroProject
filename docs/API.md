@@ -331,6 +331,7 @@ Sets `lastReminderSentAt` to now.
   "client": "string",
   "job": "string",
   "email": "string",
+  "sourceEmailId": "abc123",
   "received": "ISO date string",
   "due": "ISO date string",
   "status": "Pricing | Tendering | Issued | Won | Lost | Withdrawn",
@@ -344,6 +345,7 @@ Sets `lastReminderSentAt` to now.
 ```
 
 - `email` is mapped from DB — empty string if `null`
+- `sourceEmailId` is the Gmail message ID — omitted (`undefined`) when not set
 - `contractSum` is `undefined` (omitted) when the requesting user lacks the `Tenders` permission
 - `deleted` is the mapping for `isDeleted`
 

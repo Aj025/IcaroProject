@@ -16,6 +16,7 @@ export interface TenderEntity {
   client: string;
   job: string;
   email: string | null;
+  sourceEmailId: string | null;
   received: Date;
   due: Date | null;
   status: string;
@@ -35,6 +36,7 @@ export class TenderResponseDto {
   received: string = '';
   due: string = '';
   status: string = '';
+  sourceEmailId?: string;
   contractSum?: number | null;
   isSigned: boolean = false;
   deleted: boolean = false;
@@ -51,6 +53,7 @@ export class TenderResponseDto {
     dto.client = tender.client;
     dto.job = tender.job;
     dto.email = tender.email ?? '';
+    dto.sourceEmailId = tender.sourceEmailId ?? undefined;
     dto.received = toISOOrString(tender.received);
     dto.due = tender.due ? toISOOrString(tender.due) : '';
     dto.status = tender.status;
