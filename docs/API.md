@@ -826,7 +826,7 @@ Returns the current user's widget layout and the full widget catalog. If no save
 | `desc` | `string` | Short description of what the widget shows |
 | `requires` | `string?` | Integration required (e.g. `"Dropbox"`). Absent if no integration needed |
 | `available` | `boolean` | Whether the required integration is connected (`true` if no `requires` or integration is connected) |
-| `active` | `boolean` | Whether the widget is currently in the user's layout |
+| `active` | `boolean` | Whether the widget is toggled active in the user's catalog config (persisted in `DashboardCatalogConfig`) |
 
 ---
 
@@ -916,6 +916,103 @@ When a row is deleted, an audit log is written with `field: "reset"`, `oldValue:
 | 403 | Non-admin calls `/reset` | `{ statusCode: 403, message: "Insufficient role. Admin access required.", error: "Forbidden" }` |
 | 429 | >30 PATCH calls/min | throttler default 429 body |
 
+---
+
+### Dashboard Catalog
+
+Persists which widgets are toggled active in the catalog per user. Active state is independent of layout placement — a widget can be active in the catalog without being placed on the dashboard. Base path: `/dashboard/catalog`.
+
+All endpoints require `Authorization: Bearer <jwt>`. All authenticated users can read/update their own catalog config. The reset endpoint is available to all roles (unlike layout reset which is admin-only).
+
+---
+
+#### `GET /dashboard/catalog`
+
+Returns the full widget catalog with `available` (integration check) and `active` (from user's persisted config). When no config row exists, all available widgets default to `active: true`.
+
+**Response `200 OK`:**
+```json
+{
+  "catalog": [
+    {
+      "id": "cash-at-risk",
+      "group": "Financials",
+      "name": "Cash at risk",
+      "desc": "Total overdue client cash by project.",
+      "available": true,
+      "active": true
+    },
+    {
+      "id": "dropbox-revisions",
+      "group": "Integrations",
+      "name": "Dropbox — recent revisions",
+      "desc": "New drawings synced from Dropbox.",
+      "requires": "Dropbox",
+      "available": false,
+      "active": false
+    }
+  ]
+}
+```
+
+Catalog entry fields are identical to those documented in `GET /dashboard/layout`.
+
+---
+
+#### `PATCH /dashboard/catalog`
+
+Upsert the user's active widget ID list. Rate-limited to **30 requests per minute** per user.
+
+**Request body:**
+```json
+{
+  "activeWidgetIds": ["cash-at-risk", "ceo-actions", "brain-dump"]
+}
+```
+
+**Validation (`class-validator`):**
+
+| Field | Rules |
+|---|---|
+| `activeWidgetIds` | Required. `@IsArray()`, `@ArrayMaxSize(20)`, `@IsString({ each: true })`, `@IsIn(WIDGET_CATALOG_IDS, { each: true })`. |
+| Duplicate IDs | Rejected by a custom `@ValidatorConstraint` (`NoDuplicateStrings`). The 400 body is `{ message: "Duplicate values are not allowed", duplicates: ["cash-at-risk"] }`. |
+
+Known widget IDs (from `src/modules/dashboard/constants/widget-catalog.ts`):
+```
+cash-at-risk, cash-position, client-invoices, sub-invoices,
+ceo-actions, waiting-client, brain-dump,
+tender-snapshot, live-projects,
+docusign, dropbox-revisions, gmail-tenders,
+supplier-trades
+```
+
+**Response `200 OK`:** the catalog with updated active state (same shape as `GET`).
+
+---
+
+#### `POST /dashboard/catalog/reset`
+
+Deletes the user's `DashboardCatalogConfig` row. Subsequent `GET` calls return all available widgets as `active: true`. Available to all authenticated roles.
+
+**Response `200 OK`:**
+```json
+{
+  "catalog": [
+    { "id": "cash-at-risk", "group": "Financials", "name": "Cash at risk", "desc": "...", "available": true, "active": true }
+  ]
+}
+```
+
+---
+
+**RBAC matrix (dashboard catalog):**
+
+| Endpoint | Admin | Estimator | PM |
+|---|---|---|---|
+| `GET /dashboard/catalog` | ✅ | ✅ | ✅ |
+| `PATCH /dashboard/catalog` | ✅ | ✅ | ✅ |
+| `POST /dashboard/catalog/reset` | ✅ | ✅ | ✅ |
+
 ### DashboardLayout (Prisma)
 | Field | Type |
 |---|---|
@@ -927,6 +1024,18 @@ When a row is deleted, an audit log is written with `field: "reset"`, `oldValue:
 | updatedAt | DateTime (`@updatedAt`) |
 
 Unique: `[tenantId, userId]` · Index: `[tenantId]` · Table: `dashboard_layouts`.
+
+### DashboardCatalogConfig (Prisma)
+| Field | Type |
+|---|---|
+| id | String (PK, cuid) |
+| tenantId | String |
+| userId | String |
+| activeWidgetIds | Json (`string[]`) |
+| createdAt | DateTime (`@default(now())`) |
+| updatedAt | DateTime (`@updatedAt`) |
+
+Unique: `[tenantId, userId]` · Index: `[tenantId]` · Table: `dashboard_catalog_configs`.
 
 ---
 
