@@ -27,6 +27,14 @@ export class WidgetItemDto {
   id!: string;
 
   @IsInt()
+  @Min(0)
+  x!: number;
+
+  @IsInt()
+  @Min(0)
+  y!: number;
+
+  @IsInt()
   @Min(MIN_COL_SPAN)
   @Max(MAX_COL_SPAN)
   colSpan!: number;

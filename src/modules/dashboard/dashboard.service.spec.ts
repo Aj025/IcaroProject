@@ -70,8 +70,8 @@ describe('DashboardService', () => {
         .mockImplementation();
       db.dashboardLayout.findUnique.mockResolvedValue(
         mockEntity([
-          { id: 'cash-at-risk', colSpan: 4, rowSpan: 2 },
-          { id: 'bad-id', colSpan: 4, rowSpan: 2 },
+          { id: 'cash-at-risk', x: 0, y: 0, colSpan: 4, rowSpan: 2 },
+          { id: 'bad-id', x: 0, y: 0, colSpan: 4, rowSpan: 2 },
         ]),
       );
       const result = await service.getLayout(mockUser);
@@ -85,7 +85,7 @@ describe('DashboardService', () => {
 
     it('returns DEFAULT_LAYOUT when stored widgets are all unknown', async () => {
       db.dashboardLayout.findUnique.mockResolvedValue(
-        mockEntity([{ id: 'bad-1', colSpan: 4, rowSpan: 2 }]),
+        mockEntity([{ id: 'bad-1', x: 0, y: 0, colSpan: 4, rowSpan: 2 }]),
       );
       const result = await service.getLayout(mockUser);
       expect(result.widgets).toEqual(DEFAULT_LAYOUT);
@@ -99,8 +99,8 @@ describe('DashboardService', () => {
 
     it('preserves known widgets and their spans', async () => {
       const widgets: WidgetInstance[] = [
-        { id: 'cash-at-risk', colSpan: 6, rowSpan: 1 },
-        { id: 'ceo-actions', colSpan: 6, rowSpan: 1 },
+        { id: 'cash-at-risk', x: 0, y: 0, colSpan: 6, rowSpan: 1 },
+        { id: 'ceo-actions', x: 6, y: 0, colSpan: 6, rowSpan: 1 },
       ];
       db.dashboardLayout.findUnique.mockResolvedValue(mockEntity(widgets));
       const result = await service.getLayout(mockUser);
@@ -111,8 +111,8 @@ describe('DashboardService', () => {
   describe('saveLayout', () => {
     it('upserts by composite tenantId_userId and returns saved widgets', async () => {
       const saved: WidgetInstance[] = [
-        { id: 'cash-at-risk', colSpan: 6, rowSpan: 2 },
-        { id: 'ceo-actions', colSpan: 6, rowSpan: 1 },
+        { id: 'cash-at-risk', x: 0, y: 0, colSpan: 6, rowSpan: 2 },
+        { id: 'ceo-actions', x: 6, y: 0, colSpan: 6, rowSpan: 1 },
       ];
       db.dashboardLayout.upsert.mockResolvedValue(mockEntity(saved));
       db.auditLog.create.mockResolvedValue({});
@@ -134,7 +134,7 @@ describe('DashboardService', () => {
 
     it('writes an audit log entry with widgetCount', async () => {
       const saved: WidgetInstance[] = [
-        { id: 'cash-at-risk', colSpan: 6, rowSpan: 2 },
+        { id: 'cash-at-risk', x: 0, y: 0, colSpan: 6, rowSpan: 2 },
       ];
       db.dashboardLayout.upsert.mockResolvedValue(mockEntity(saved, 'lay-9'));
       db.auditLog.create.mockResolvedValue({});
@@ -159,8 +159,8 @@ describe('DashboardService', () => {
     it('deletes an existing row and audits before.widgetCount', async () => {
       db.dashboardLayout.findUnique.mockResolvedValue(
         mockEntity([
-          { id: 'cash-at-risk', colSpan: 4, rowSpan: 2 },
-          { id: 'ceo-actions', colSpan: 4, rowSpan: 2 },
+          { id: 'cash-at-risk', x: 0, y: 0, colSpan: 4, rowSpan: 2 },
+          { id: 'ceo-actions', x: 4, y: 0, colSpan: 4, rowSpan: 2 },
         ]),
       );
       db.dashboardLayout.delete.mockResolvedValue({});

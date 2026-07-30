@@ -6,13 +6,14 @@ export const DEFAULT_COL_SPAN = 4;
 export const DEFAULT_ROW_SPAN = 1;
 export const MAX_WIDGETS = 20;
 
-export type WidgetGroup = 'Financials' | 'Actions' | 'Tenders' | 'Projects' | 'Integrations';
+export type WidgetGroup = 'Financials' | 'Actions' | 'Tenders' | 'Projects' | 'Suppliers' | 'Integrations';
 
 export const WIDGET_GROUPS: WidgetGroup[] = [
   'Financials',
   'Actions',
   'Tenders',
   'Projects',
+  'Suppliers',
   'Integrations',
 ];
 
@@ -37,6 +38,7 @@ export const WIDGET_CATALOG_IDS = [
   'docusign',
   'dropbox-revisions',
   'gmail-tenders',
+  'supplier-trades',
 ] as const;
 
 export type WidgetId = (typeof WIDGET_CATALOG_IDS)[number];
@@ -58,4 +60,5 @@ export const WIDGET_CATALOG: WidgetCatalogEntry[] = [
   { id: 'docusign', group: 'Integrations', name: 'DocuSign — awaiting signature', desc: 'Envelopes sent, not yet signed.' },
   { id: 'dropbox-revisions', group: 'Integrations', name: 'Dropbox — recent revisions', desc: 'New drawings synced from Dropbox.', requires: 'Dropbox' },
   { id: 'gmail-tenders', group: 'Integrations', name: 'Gmail — draft tenders', desc: 'Draft tenders created from parsed emails.', requires: 'Gmail parser' },
+  { id: 'supplier-trades', group: 'Suppliers', name: 'Suppliers by trade', desc: 'Count of active suppliers grouped by trade.' },
 ];

@@ -63,6 +63,8 @@ export class DashboardService {
   ): Promise<LayoutResponseDto> {
     const widgets: WidgetInstance[] = dto.widgets.map((w) => ({
       id: w.id,
+      x: w.x,
+      y: w.y,
       colSpan: w.colSpan,
       rowSpan: w.rowSpan,
     }));
@@ -184,6 +186,8 @@ export class DashboardService {
       if (w && typeof w.id === 'string' && isKnownWidgetId(w.id)) {
         cleaned.push({
           id: w.id,
+          x: w.x,
+          y: w.y,
           colSpan: w.colSpan,
           rowSpan: w.rowSpan,
         });

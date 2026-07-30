@@ -774,7 +774,7 @@ Check connection status.
 
 ### Dashboard Layout
 
-Persists each user's widget layout (order, colSpan, rowSpan). Base path: `/dashboard/layout`.
+Persists each user's widget layout (x, y grid position, colSpan, rowSpan). Base path: `/dashboard/layout`.
 
 All endpoints require `Authorization: Bearer <jwt>`. All authenticated users can read/write their own layout (no module permission gate). The reset endpoint is **admin-only**.
 
@@ -793,8 +793,8 @@ Returns the current user's widget layout and the full widget catalog. If no save
 ```json
 {
   "widgets": [
-    { "id": "cash-at-risk", "colSpan": 4, "rowSpan": 2 },
-    { "id": "ceo-actions",  "colSpan": 4, "rowSpan": 2 }
+    { "id": "cash-at-risk", "x": 0, "y": 0, "colSpan": 4, "rowSpan": 2 },
+    { "id": "ceo-actions",  "x": 4, "y": 0, "colSpan": 4, "rowSpan": 2 }
   ],
   "catalog": [
     {
@@ -838,8 +838,8 @@ Upsert the current user's layout. Rate-limited to **30 requests per minute** per
 ```json
 {
   "widgets": [
-    { "id": "cash-at-risk", "colSpan": 6, "rowSpan": 2 },
-    { "id": "ceo-actions",  "colSpan": 6, "rowSpan": 1 }
+    { "id": "cash-at-risk", "x": 0, "y": 0, "colSpan": 6, "rowSpan": 2 },
+    { "id": "ceo-actions",  "x": 6, "y": 0, "colSpan": 6, "rowSpan": 1 }
   ]
 }
 ```
@@ -850,6 +850,8 @@ Upsert the current user's layout. Rate-limited to **30 requests per minute** per
 |---|---|
 | `widgets` | Required. `@IsArray()`, `@ArrayMaxSize(20)`, `@ValidateNested({ each: true })`. |
 | `widgets[].id` | Required. `@IsString()`, `@IsIn(WIDGET_CATALOG_IDS)` (see list below). |
+| `widgets[].x` | Required. `@IsInt()`, `@Min(0)`. Grid column position. |
+| `widgets[].y` | Required. `@IsInt()`, `@Min(0)`. Grid row position. |
 | `widgets[].colSpan` | Required. `@IsInt()`, `@Min(2)`, `@Max(12)`. |
 | `widgets[].rowSpan` | Required. `@IsInt()`, `@Min(1)`, `@Max(6)`. |
 | Duplicate IDs | Rejected by a custom `@ValidatorConstraint` (`NoDuplicateWidgetIds`). The 400 body is `{ message: "Duplicate widget IDs are not allowed", duplicates: ["cash-at-risk"] }`. |
@@ -860,7 +862,8 @@ Known widget IDs (from `src/modules/dashboard/constants/widget-catalog.ts`):
 cash-at-risk, cash-position, client-invoices, sub-invoices,
 ceo-actions, waiting-client, brain-dump,
 tender-snapshot, live-projects,
-docusign, dropbox-revisions, gmail-tenders
+docusign, dropbox-revisions, gmail-tenders,
+supplier-trades
 ```
 
 **Response `200 OK`:** the saved layout with widget catalog (same shape as `GET`).
@@ -882,7 +885,7 @@ Deletes the current user's saved layout row. Subsequent `GET` calls return the s
 ```json
 {
   "widgets": [
-    { "id": "cash-at-risk", "colSpan": 4, "rowSpan": 2 }
+    { "id": "cash-at-risk", "x": 0, "y": 0, "colSpan": 4, "rowSpan": 2 }
   ],
   "catalog": [
     { "id": "cash-at-risk", "group": "Financials", "name": "Cash at risk", "desc": "...", "available": true, "active": true }
