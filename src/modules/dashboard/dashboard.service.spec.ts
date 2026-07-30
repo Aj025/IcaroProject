@@ -6,6 +6,14 @@ jest.mock('../../prisma/prisma.service.js', () => ({
         upsert: jest.fn(),
         delete: jest.fn(),
       },
+      dashboardCatalogConfig: {
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+        deleteMany: jest.fn(),
+      },
+      dropboxToken: {
+        findFirst: jest.fn(),
+      },
       auditLog: {
         create: jest.fn(),
       },
@@ -39,6 +47,17 @@ function mockEntity(widgets: WidgetInstance[], id = 'layout-1') {
   };
 }
 
+function mockCatalogConfig(activeWidgetIds: string[], id = 'config-1') {
+  return {
+    id,
+    tenantId: 'default',
+    userId: mockUser.id,
+    activeWidgetIds,
+    createdAt: new Date('2026-07-27'),
+    updatedAt: new Date('2026-07-27'),
+  };
+}
+
 describe('DashboardService', () => {
   let service: DashboardService;
   let db: any;
@@ -48,11 +67,13 @@ describe('DashboardService', () => {
     db = prisma.prisma;
     service = new DashboardService(prisma);
     jest.clearAllMocks();
+    db.dropboxToken.findFirst.mockResolvedValue(null);
   });
 
   describe('getLayout', () => {
     it('returns DEFAULT_LAYOUT when no saved row exists', async () => {
       db.dashboardLayout.findUnique.mockResolvedValue(null);
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
       const result = await service.getLayout(mockUser);
       expect(result.widgets).toEqual(DEFAULT_LAYOUT);
       expect(db.dashboardLayout.findUnique).toHaveBeenCalledWith(
@@ -74,6 +95,7 @@ describe('DashboardService', () => {
           { id: 'bad-id', x: 0, y: 0, colSpan: 4, rowSpan: 2 },
         ]),
       );
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
       const result = await service.getLayout(mockUser);
       expect(result.widgets).toHaveLength(1);
       expect(result.widgets[0].id).toBe('cash-at-risk');
@@ -87,12 +109,14 @@ describe('DashboardService', () => {
       db.dashboardLayout.findUnique.mockResolvedValue(
         mockEntity([{ id: 'bad-1', x: 0, y: 0, colSpan: 4, rowSpan: 2 }]),
       );
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
       const result = await service.getLayout(mockUser);
       expect(result.widgets).toEqual(DEFAULT_LAYOUT);
     });
 
     it('returns saved empty array as-is (empty state)', async () => {
       db.dashboardLayout.findUnique.mockResolvedValue(mockEntity([]));
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
       const result = await service.getLayout(mockUser);
       expect(result.widgets).toEqual([]);
     });
@@ -103,6 +127,7 @@ describe('DashboardService', () => {
         { id: 'ceo-actions', x: 6, y: 0, colSpan: 6, rowSpan: 1 },
       ];
       db.dashboardLayout.findUnique.mockResolvedValue(mockEntity(widgets));
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
       const result = await service.getLayout(mockUser);
       expect(result.widgets).toEqual(widgets);
     });
@@ -116,6 +141,7 @@ describe('DashboardService', () => {
       ];
       db.dashboardLayout.upsert.mockResolvedValue(mockEntity(saved));
       db.auditLog.create.mockResolvedValue({});
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
 
       const result = await service.saveLayout(
         { widgets: saved } as any,
@@ -138,6 +164,7 @@ describe('DashboardService', () => {
       ];
       db.dashboardLayout.upsert.mockResolvedValue(mockEntity(saved, 'lay-9'));
       db.auditLog.create.mockResolvedValue({});
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
 
       await service.saveLayout({ widgets: saved } as any, mockUser);
 
@@ -165,6 +192,7 @@ describe('DashboardService', () => {
       );
       db.dashboardLayout.delete.mockResolvedValue({});
       db.auditLog.create.mockResolvedValue({});
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
 
       const result = await service.resetLayout(mockUser);
 
@@ -186,6 +214,7 @@ describe('DashboardService', () => {
 
     it('no-ops audit when no saved layout exists but still returns defaults', async () => {
       db.dashboardLayout.findUnique.mockResolvedValue(null);
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
 
       const result = await service.resetLayout(mockUser);
 
@@ -193,6 +222,78 @@ describe('DashboardService', () => {
       expect(db.auditLog.create).not.toHaveBeenCalled();
       expect(result.reset).toBe(true);
       expect(result.widgets).toEqual(DEFAULT_LAYOUT);
+    });
+  });
+
+  describe('getCatalog', () => {
+    it('returns all widgets active=true when no config row exists', async () => {
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
+      const result = await service.getCatalog(mockUser);
+      for (const entry of result.catalog) {
+        expect(entry.active).toBe(true);
+      }
+      expect(result.catalog.length).toBeGreaterThan(0);
+    });
+
+    it('returns active=true only for widget IDs in config', async () => {
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(
+        mockCatalogConfig(['cash-at-risk', 'ceo-actions']),
+      );
+      const result = await service.getCatalog(mockUser);
+      const cash = result.catalog.find((e) => e.id === 'cash-at-risk');
+      const ceo = result.catalog.find((e) => e.id === 'ceo-actions');
+      const other = result.catalog.find((e) => e.id === 'live-projects');
+      expect(cash?.active).toBe(true);
+      expect(ceo?.active).toBe(true);
+      expect(other?.active).toBe(false);
+    });
+  });
+
+  describe('updateCatalogConfig', () => {
+    it('upserts the config and returns catalog', async () => {
+      const activeIds = ['cash-at-risk', 'ceo-actions', 'brain-dump'];
+      db.dashboardCatalogConfig.upsert.mockResolvedValue(
+        mockCatalogConfig(activeIds),
+      );
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(
+        mockCatalogConfig(activeIds),
+      );
+
+      const result = await service.updateCatalogConfig(
+        { activeWidgetIds: activeIds },
+        mockUser,
+      );
+
+      expect(db.dashboardCatalogConfig.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId_userId: { tenantId: 'default', userId: 'user-1' },
+          },
+          create: expect.objectContaining({
+            activeWidgetIds: activeIds,
+          }),
+          update: expect.objectContaining({
+            activeWidgetIds: activeIds,
+          }),
+        }),
+      );
+      expect(result.catalog.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('resetCatalogConfig', () => {
+    it('deletes the config row and returns all widgets active', async () => {
+      db.dashboardCatalogConfig.deleteMany.mockResolvedValue({ count: 1 });
+      db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
+
+      const result = await service.resetCatalogConfig(mockUser);
+
+      expect(db.dashboardCatalogConfig.deleteMany).toHaveBeenCalledWith({
+        where: { tenantId: 'default', userId: 'user-1' },
+      });
+      for (const entry of result.catalog) {
+        expect(entry.active).toBe(true);
+      }
     });
   });
 });

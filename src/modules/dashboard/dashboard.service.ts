@@ -10,11 +10,13 @@ import {
   isKnownWidgetId,
 } from './constants/widget-catalog.js';
 import type { SaveLayoutDto } from './dto/save-layout.dto.js';
+import type { UpdateCatalogConfigDto } from './dto/update-catalog-config.dto.js';
 import {
   LayoutResponseDto,
   ResetLayoutResponseDto,
   type CatalogEntry,
 } from './dto/layout-response.dto.js';
+import { CatalogResponseDto } from './dto/catalog-response.dto.js';
 
 @Injectable()
 export class DashboardService {
@@ -141,10 +143,51 @@ export class DashboardService {
     return ResetLayoutResponseDto.fromWidgets(DEFAULT_LAYOUT, catalog, true);
   }
 
-  private async buildCatalog(user: AuthenticatedUser): Promise<CatalogEntry[]> {
-    const activeIds = new Set<string>();
+  async getCatalog(user: AuthenticatedUser): Promise<CatalogResponseDto> {
+    const catalog = await this.buildCatalog(user);
+    return CatalogResponseDto.fromCatalog(catalog);
+  }
 
-    const layout = await this.db.dashboardLayout.findUnique({
+  async updateCatalogConfig(
+    dto: UpdateCatalogConfigDto,
+    user: AuthenticatedUser,
+  ): Promise<CatalogResponseDto> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+    await this.db.dashboardCatalogConfig.upsert({
+      where: {
+        tenantId_userId: {
+          tenantId: this.tenantId(),
+          userId: user.id,
+        },
+      },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      create: {
+        tenantId: this.tenantId(),
+        userId: user.id,
+        activeWidgetIds: dto.activeWidgetIds as any,
+      },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      update: { activeWidgetIds: dto.activeWidgetIds as any },
+    });
+
+    const catalog = await this.buildCatalog(user);
+    return CatalogResponseDto.fromCatalog(catalog);
+  }
+
+  async resetCatalogConfig(user: AuthenticatedUser): Promise<CatalogResponseDto> {
+    await this.db.dashboardCatalogConfig.deleteMany({
+      where: {
+        tenantId: this.tenantId(),
+        userId: user.id,
+      },
+    });
+
+    const catalog = await this.buildCatalog(user);
+    return CatalogResponseDto.fromCatalog(catalog);
+  }
+
+  private async buildCatalog(user: AuthenticatedUser): Promise<CatalogEntry[]> {
+    const config = await this.db.dashboardCatalogConfig.findUnique({
       where: {
         tenantId_userId: {
           tenantId: this.tenantId(),
@@ -153,12 +196,9 @@ export class DashboardService {
       },
     });
 
-    if (layout) {
-      const widgets = layout.widgets as unknown as WidgetInstance[];
-      for (const w of widgets) {
-        activeIds.add(w.id);
-      }
-    }
+    const activeIds = config
+      ? new Set<string>(config.activeWidgetIds as unknown as string[])
+      : null;
 
     const connectedIntegrations = new Set<string>();
     const dropboxToken = await this.db.dropboxToken.findFirst({
@@ -171,7 +211,7 @@ export class DashboardService {
     return WIDGET_CATALOG.map((entry) => ({
       ...entry,
       available: !entry.requires || connectedIntegrations.has(entry.requires),
-      active: activeIds.has(entry.id),
+      active: activeIds ? activeIds.has(entry.id) : true,
     }));
   }
 

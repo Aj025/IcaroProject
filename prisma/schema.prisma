@@ -206,3 +206,18 @@ model DashboardLayout {
   @@index([tenantId])
   @@map("dashboard_layouts")
 }
+
+model DashboardCatalogConfig {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
+  activeWidgetIds Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@map("dashboard_catalog_configs")
+}
