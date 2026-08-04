@@ -322,6 +322,186 @@ Sets `lastReminderSentAt` to now.
 
 ---
 
+## Communication & Email
+
+Editable quotation email templates (stored in the `EmailTemplate` DB table, falling back to server defaults when not customised) and a `mailto:` URL builder that resolves those templates.
+
+All endpoints require `Authorization: Bearer <jwt>`. Editing templates is **admin-only** (`@Roles('admin')`); reading and building `mailto:` links is available to all authenticated users (no module permission gate).
+
+### Template keys
+
+| Key | Name | Purpose |
+|---|---|---|
+| `quotation_to_estimator` | Quotation request — estimator | Email asking an estimator to prepare a quotation |
+| `quotation_to_client` | Quotation — client | Email sending the quotation to the client |
+
+### Placeholders
+
+Templates support `{placeholder}` tokens that are substituted when building a `mailto:` link. Unknown placeholders are replaced with an empty string.
+
+| Placeholder | Meaning |
+|---|---|
+| `{client}` | Client name |
+| `{job}` | Job / works description |
+| `{due}` | Due date |
+| `{quoteAmount}` | Quotation amount (client template) |
+| `{estimatorName}` | Estimator's name (estimator template) |
+| `{companyName}` | Sender's company name |
+
+---
+
+#### `POST /communication/emails/mailto`
+
+Build an RFC 6068 `mailto:` URL. If `templateKey` is provided, `subject`/`body` are taken from that template (DB row if customised, else the server default) and any placeholder values in `data` are substituted. If `subject`/`body` are provided directly, they are used instead (placeholders are still substituted). Query parameters are percent-encoded; the `to` address is left raw.
+
+```json
+{
+  "to": "maria@icaroprojects.com",
+  "templateKey": "quotation_to_estimator",
+  "data": {
+    "estimatorName": "Maria",
+    "client": "Acme Corp",
+    "job": "Foundation pour",
+    "due": "2026-08-15",
+    "companyName": "Icaro Projects"
+  }
+}
+```
+
+**Validation:**
+
+| Field | Rules |
+|---|---|
+| `to` | Required. `@IsEmail()`. |
+| `cc` | Optional. Array of emails. |
+| `bcc` | Optional. Array of emails. |
+| `templateKey` | Optional. Must be one of the template keys. |
+| `data` | Optional. Object mapping placeholder name → string value. |
+| `subject` | Optional. Max 200 chars. Ignored when `templateKey` resolves a template. |
+| `body` | Optional. Max 10000 chars. Ignored when `templateKey` resolves a template. |
+
+**Response (200):**
+```json
+{
+  "mailto": "mailto:maria@icaroprojects.com?subject=Estimate%20needed%3A%20Foundation%20pour%20%E2%80%94%20Acme%20Corp&body=Hi%20Maria%2C%0A...",
+  "recipient": "maria@icaroprojects.com",
+  "cc": [],
+  "bcc": [],
+  "subject": "Estimate needed: Foundation pour — Acme Corp",
+  "body": "Hi Maria,\n\nPlease prepare a quotation for the following tender:..."
+}
+```
+
+---
+
+#### `GET /communication/email-templates`
+
+List both quotation templates. Returns the customised subject/body from the DB when a row exists, otherwise the server default (`isDefault: true`).
+
+**Response (200):**
+```json
+{
+  "templates": [
+    {
+      "id": "clx...",
+      "key": "quotation_to_estimator",
+      "name": "Quotation request — estimator",
+      "subject": "Estimate needed: {job} — {client}",
+      "body": "Hi {estimatorName},...",
+      "isDefault": false,
+      "updatedAt": "2026-08-04T10:00:00Z"
+    },
+    {
+      "id": "",
+      "key": "quotation_to_client",
+      "name": "Quotation — client",
+      "subject": "Quotation for {job} — {client}",
+      "body": "Dear {client},...",
+      "isDefault": true,
+      "updatedAt": null
+    }
+  ]
+}
+```
+
+---
+
+#### `GET /communication/email-templates/:key`
+
+Get a single template by key (`quotation_to_estimator` or `quotation_to_client`).
+
+- **404** if the key is unknown.
+
+**Response (200):** single `EmailTemplate` object (same shape as the list entries above).
+
+---
+
+#### `PATCH /communication/email-templates/:key`  (Admin only — `@Roles('admin')`)
+
+Create or update the customised subject/body for a template. All fields optional. Omitting a field keeps the current (or default) value.
+
+```json
+{
+  "subject": "Estimate needed urgently: {job} — {client}",
+  "body": "Hi {estimatorName},\n\nPlease quote the {job} works for {client}."
+}
+```
+
+**Validation:**
+
+| Field | Rules |
+|---|---|
+| `subject` | Optional. `@IsString()`, max 200 chars. |
+| `body` | Optional. `@IsString()`, max 10000 chars. |
+
+**Response (200):** the updated template.
+
+---
+
+#### `POST /communication/email-templates/:key/reset`  (Admin only — `@Roles('admin')`)
+
+Delete the customised row for a template. Subsequent reads fall back to the server default. If no custom row exists, the call is a no-op on the DB (no audit entry) but the response still reports `reset: true`.
+
+- **404** if the key is unknown.
+
+**Response (200):**
+```json
+{
+  "id": "",
+  "key": "quotation_to_estimator",
+  "name": "Quotation request — estimator",
+  "subject": "Estimate needed: {job} — {client}",
+  "body": "Hi {estimatorName},...",
+  "isDefault": true,
+  "updatedAt": null,
+  "reset": true
+}
+```
+
+When a row is deleted, an audit log entry is written with `entityType: "EmailTemplate"` and `field: "reset"`.
+
+---
+
+**RBAC matrix (communication):**
+
+| Endpoint | Admin | Estimator | PM |
+|---|---|---|---|
+| `POST /communication/emails/mailto` | ✅ | ✅ | ✅ |
+| `GET /communication/email-templates` | ✅ | ✅ | ✅ |
+| `GET /communication/email-templates/:key` | ✅ | ✅ | ✅ |
+| `PATCH /communication/email-templates/:key` | ✅ | ❌ | ❌ |
+| `POST /communication/email-templates/:key/reset` | ✅ | ❌ | ❌ |
+
+**Error shapes:**
+
+| Status | Trigger | Body |
+|---|---|---|
+| 400 | Invalid `to`/unknown `templateKey`/bad `data` | class-validator default array (whitelist + forbidNonWhitelisted enforced by global `ValidationPipe`) |
+| 403 | Non-admin calls a PATCH/reset route | `{ statusCode: 403, message: "Insufficient role. Admin access required.", error: "Forbidden" }` |
+| 404 | Unknown template key | Nest default 404 body |
+
+---
+
 ## Response Shape
 
 ### `TenderResponseDto`
@@ -410,6 +590,21 @@ For 403:
 | newValue    | String?          |
 | changedById | String           |
 | changedAt   | DateTime         |
+
+### EmailTemplate
+| Field       | Type             |
+|-------------|------------------|
+| id          | String (PK, cuid) |
+| tenantId    | String           |
+| key         | String (`quotation_to_estimator` \| `quotation_to_client`) |
+| name        | String           |
+| subject     | String           |
+| body        | String           |
+| updatedById | String?          |
+| createdAt   | DateTime         |
+| updatedAt   | DateTime         |
+
+Unique: `[tenantId, key]` · Index: `[tenantId]` · Table: `email_templates`.
 
 ---
 

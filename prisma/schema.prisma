@@ -221,3 +221,20 @@ model DashboardCatalogConfig {
   @@index([tenantId])
   @@map("dashboard_catalog_configs")
 }
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String
+  name        String
+  subject     String
+  body        String
+  updatedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("email_templates")
+}
