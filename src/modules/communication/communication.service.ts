@@ -5,15 +5,16 @@ import {
   getDefaultTemplate,
 } from './constants/default-email-templates.js';
 import type {
-  BuildMailtoDto,
+  SendEmailDto,
   UpdateEmailTemplateDto,
 } from './dto/communication.dto.js';
+import { MailService } from './mail.service.js';
 import {
   fromDefinition,
   type EmailTemplateEntity,
   type EmailTemplateListResponse,
-  type MailtoResponse,
   type ResetEmailTemplateResponse,
+  type SentEmailResponse,
 } from './dto/email-template-response.dto.js';
 
 interface EmailTemplateRow {
@@ -30,7 +31,10 @@ interface EmailTemplateRow {
 
 @Injectable()
 export class CommunicationService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    private mailService: MailService,
+  ) {}
 
   private get db() {
     return this.prismaService.prisma;
@@ -146,7 +150,7 @@ export class CommunicationService {
     return { ...fromDefinition(def), reset: true };
   }
 
-  async buildMailto(dto: BuildMailtoDto): Promise<MailtoResponse> {
+  async sendEmail(dto: SendEmailDto): Promise<SentEmailResponse> {
     let subject = '';
     let body = '';
 
@@ -162,22 +166,13 @@ export class CommunicationService {
     subject = this.substitute(subject, dto.data);
     body = this.substitute(body, dto.data);
 
-    const params = new URLSearchParams();
-    if (dto.cc && dto.cc.length > 0) params.set('cc', dto.cc.join(','));
-    if (dto.bcc && dto.bcc.length > 0) params.set('bcc', dto.bcc.join(','));
-    if (subject) params.set('subject', subject);
-    if (body) params.set('body', body);
-
-    const query = params.toString();
-    const mailto = query ? `mailto:${dto.to}?${query}` : `mailto:${dto.to}`;
-    return {
-      mailto,
-      recipient: dto.to,
-      cc: dto.cc ?? [],
-      bcc: dto.bcc ?? [],
+    return this.mailService.send({
+      to: dto.to,
+      cc: dto.cc,
+      bcc: dto.bcc,
       subject,
       body,
-    };
+    });
   }
 
   private substitute(text: string, data?: Record<string, string>): string {

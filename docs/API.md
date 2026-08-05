@@ -324,9 +324,23 @@ Sets `lastReminderSentAt` to now.
 
 ## Communication & Email
 
-Editable quotation email templates (stored in the `EmailTemplate` DB table, falling back to server defaults when not customised) and a `mailto:` URL builder that resolves those templates.
+Editable quotation email templates (stored in the `EmailTemplate` DB table, falling back to server defaults when not customised) and a server-side email sender that resolves those templates and dispatches them over SMTP via Nodemailer.
 
-All endpoints require `Authorization: Bearer <jwt>`. Editing templates is **admin-only** (`@Roles('admin')`); reading and building `mailto:` links is available to all authenticated users (no module permission gate).
+All endpoints require `Authorization: Bearer <jwt>`. Editing templates is **admin-only** (`@Roles('admin')`); reading templates and sending emails is available to all authenticated users (no module permission gate).
+
+### SMTP configuration
+
+Emails are sent via SMTP using Nodemailer. Configure the following environment variables (see `.env.example`):
+
+| Var | Required | Default | Description |
+|---|---|---|---|
+| `SMTP_HOST` | yes | — | SMTP server host, e.g. `smtp.gmail.com` |
+| `SMTP_PORT` | no | `587` (or `465` when user is set) | SMTP port; `465` enables TLS |
+| `SMTP_USER` | no | — | SMTP username (used for auth and default `from` when `SMTP_FROM` unset) |
+| `SMTP_PASS` | no | — | SMTP password / app password |
+| `SMTP_FROM` | no | `SMTP_USER` | The `From:` address for outgoing mail |
+
+If `SMTP_HOST` is not set the send endpoint returns `200 OK` with `sent: false` and a `note` instead of failing.
 
 ### Template keys
 
@@ -337,7 +351,7 @@ All endpoints require `Authorization: Bearer <jwt>`. Editing templates is **admi
 
 ### Placeholders
 
-Templates support `{placeholder}` tokens that are substituted when building a `mailto:` link. Unknown placeholders are replaced with an empty string.
+Templates support `{placeholder}` tokens that are substituted before the email is sent. Unknown placeholders are replaced with an empty string.
 
 | Placeholder | Meaning |
 |---|---|
@@ -350,9 +364,9 @@ Templates support `{placeholder}` tokens that are substituted when building a `m
 
 ---
 
-#### `POST /communication/emails/mailto`
+#### `POST /communication/emails/send`
 
-Build an RFC 6068 `mailto:` URL. If `templateKey` is provided, `subject`/`body` are taken from that template (DB row if customised, else the server default) and any placeholder values in `data` are substituted. If `subject`/`body` are provided directly, they are used instead (placeholders are still substituted). Query parameters are percent-encoded; the `to` address is left raw.
+Send an email via SMTP (Nodemailer). If `templateKey` is provided, `subject`/`body` are taken from that template (DB row if customised, else the server default) and any placeholder values in `data` are substituted. If `subject`/`body` are provided directly, they are used instead (placeholders are still substituted).
 
 ```json
 {
@@ -377,18 +391,31 @@ Build an RFC 6068 `mailto:` URL. If `templateKey` is provided, `subject`/`body` 
 | `bcc` | Optional. Array of emails. |
 | `templateKey` | Optional. Must be one of the template keys. |
 | `data` | Optional. Object mapping placeholder name → string value. |
-| `subject` | Optional. Max 200 chars. Ignored when `templateKey` resolves a template. |
-| `body` | Optional. Max 10000 chars. Ignored when `templateKey` resolves a template. |
+| `subject` | Optional. Max 200 chars. Overrides the template subject. |
+| `body` | Optional. Max 10000 chars. Overrides the template body. |
 
-**Response (200):**
+**Response (200):** Nodemailer send result.
+
 ```json
 {
-  "mailto": "mailto:maria@icaroprojects.com?subject=Estimate%20needed%3A%20Foundation%20pour%20%E2%80%94%20Acme%20Corp&body=Hi%20Maria%2C%0A...",
+  "sent": true,
+  "messageId": "<uuid@icaro.com>",
   "recipient": "maria@icaroprojects.com",
-  "cc": [],
-  "bcc": [],
-  "subject": "Estimate needed: Foundation pour — Acme Corp",
-  "body": "Hi Maria,\n\nPlease prepare a quotation for the following tender:..."
+  "accepted": ["maria@icaroprojects.com"],
+  "rejected": []
+}
+```
+
+When SMTP is not configured, the response is `sent: false` with a `note`:
+
+```json
+{
+  "sent": false,
+  "messageId": null,
+  "recipient": "maria@icaroprojects.com",
+  "accepted": [],
+  "rejected": ["maria@icaroprojects.com"],
+  "note": "SMTP is not configured"
 }
 ```
 
@@ -486,7 +513,7 @@ When a row is deleted, an audit log entry is written with `entityType: "EmailTem
 
 | Endpoint | Admin | Estimator | PM |
 |---|---|---|---|
-| `POST /communication/emails/mailto` | ✅ | ✅ | ✅ |
+| `POST /communication/emails/send` | ✅ | ✅ | ✅ |
 | `GET /communication/email-templates` | ✅ | ✅ | ✅ |
 | `GET /communication/email-templates/:key` | ✅ | ✅ | ✅ |
 | `PATCH /communication/email-templates/:key` | ✅ | ❌ | ❌ |

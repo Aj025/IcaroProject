@@ -17,8 +17,25 @@ jest.mock('../../prisma/prisma.service.js', () => ({
 import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CommunicationService } from './communication.service.js';
+import { MailService } from './mail.service.js';
+import type { SendEmailDto } from './dto/communication.dto.js';
+import type { SentEmailResponse } from './dto/email-template-response.dto.js';
 
-const mockRow = (overrides: any = {}) => ({
+interface EmailTemplateRow {
+  id: string;
+  tenantId: string;
+  key: string;
+  name: string;
+  subject: string;
+  body: string;
+  updatedById: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const mockRow = (
+  overrides: Partial<EmailTemplateRow> = {},
+): EmailTemplateRow => ({
   id: 'tpl-1',
   tenantId: 'default',
   key: 'quotation_to_estimator',
@@ -31,14 +48,30 @@ const mockRow = (overrides: any = {}) => ({
   ...overrides,
 });
 
+type DbMock = {
+  emailTemplate: {
+    findMany: jest.Mock;
+    findUnique: jest.Mock;
+    upsert: jest.Mock;
+    delete: jest.Mock;
+  };
+  auditLog: {
+    create: jest.Mock;
+  };
+};
+
 describe('CommunicationService', () => {
   let service: CommunicationService;
-  let db: any;
+  let db: DbMock;
+  let mailService: MailService;
+  let send: jest.Mock<Promise<SentEmailResponse>, [SendEmailDto]>;
 
   beforeEach(() => {
     const prisma = new PrismaService();
-    db = prisma.prisma;
-    service = new CommunicationService(prisma);
+    db = prisma.prisma as unknown as DbMock;
+    send = jest.fn<Promise<SentEmailResponse>, [SendEmailDto]>();
+    mailService = { send } as unknown as MailService;
+    service = new CommunicationService(prisma, mailService);
     jest.clearAllMocks();
   });
 
@@ -131,11 +164,11 @@ describe('CommunicationService', () => {
           create: expect.objectContaining({
             subject: 'New subject',
             updatedById: 'user-1',
-          }),
+          }) as object,
           update: expect.objectContaining({
             subject: 'New subject',
             body: 'New body',
-          }),
+          }) as object,
         }),
       );
       expect(result.subject).toBe('New subject');
@@ -154,14 +187,16 @@ describe('CommunicationService', () => {
         'quotation_to_estimator',
         'user-1',
       );
-      expect(db.emailTemplate.delete).toHaveBeenCalledWith({ id: 'tpl-1' });
+      expect(db.emailTemplate.delete).toHaveBeenCalledWith({
+        where: { id: 'tpl-1' },
+      });
       expect(db.auditLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             entityType: 'EmailTemplate',
             field: 'reset',
             changedById: 'user-1',
-          }),
+          }) as object,
         }),
       );
       expect(result.reset).toBe(true);
@@ -180,10 +215,18 @@ describe('CommunicationService', () => {
     });
   });
 
-  describe('buildMailto', () => {
-    it('resolves a template and substitutes placeholders', async () => {
+  describe('sendEmail', () => {
+    it('resolves a template, substitutes placeholders and sends via mail', async () => {
       db.emailTemplate.findUnique.mockResolvedValue(null);
-      const result = await service.buildMailto({
+      send.mockResolvedValue({
+        sent: true,
+        messageId: 'm-1',
+        recipient: 'estimator@icaro.com',
+        accepted: ['estimator@icaro.com'],
+        rejected: [],
+      });
+
+      const result = await service.sendEmail({
         to: 'estimator@icaro.com',
         templateKey: 'quotation_to_estimator',
         data: {
@@ -194,48 +237,81 @@ describe('CommunicationService', () => {
           companyName: 'Icaro Projects',
         },
       });
-      expect(result.recipient).toBe('estimator@icaro.com');
-      expect(result.subject).toBe(
-        'Estimate needed: Foundation pour — Acme Corp',
+
+      const payload = send.mock.calls[0]?.[0];
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'estimator@icaro.com',
+          subject: 'Estimate needed: Foundation pour — Acme Corp',
+        }),
       );
-      expect(result.body).toContain('Hi Maria,');
-      expect(result.mailto.startsWith('mailto:estimator@icaro.com?')).toBe(
-        true,
+      expect(payload.body).toContain('Hi Maria,');
+      expect(result).toEqual(
+        expect.objectContaining({
+          sent: true,
+          messageId: 'm-1',
+          recipient: 'estimator@icaro.com',
+        }),
       );
-      expect(result.mailto).toContain(encodeURIComponent('Foundation pour'));
     });
 
     it('uses raw subject/body when provided without a template', async () => {
-      const result = await service.buildMailto({
+      send.mockResolvedValue({
+        sent: true,
+        messageId: null,
+        recipient: 'client@acme.com',
+        accepted: ['client@acme.com'],
+        rejected: [],
+      });
+
+      await service.sendEmail({
         to: 'client@acme.com',
         subject: 'Hi {name}',
         body: 'Body line one\nBody line two',
         data: { name: 'Rob' },
       });
-      expect(result.subject).toBe('Hi Rob');
-      expect(result.body).toBe('Body line one\nBody line two');
-      expect(result.mailto).toContain(encodeURIComponent('Hi Rob'));
-      expect(result.mailto).toContain(encodeURIComponent('Body line one'));
+
+      const payload = send.mock.calls[0]?.[0];
+      expect(payload.subject).toBe('Hi Rob');
+      expect(payload.body).toBe('Body line one\nBody line two');
     });
 
-    it('includes cc and bcc as encoded comma lists', async () => {
-      const result = await service.buildMailto({
+    it('passes cc and bcc through to the mail service', async () => {
+      send.mockResolvedValue({
+        sent: true,
+        messageId: null,
+        recipient: 'client@acme.com',
+        accepted: [],
+        rejected: [],
+      });
+
+      await service.sendEmail({
         to: 'client@acme.com',
         cc: ['a@acme.com', 'b@acme.com'],
         bcc: ['hidden@acme.com'],
         subject: 'Subject',
       });
-      expect(result.mailto).toContain(
-        'cc=' + encodeURIComponent('a@acme.com,b@acme.com'),
-      );
-      expect(result.mailto).toContain(
-        'bcc=' + encodeURIComponent('hidden@acme.com'),
-      );
+
+      const payload = send.mock.calls[0]?.[0];
+      expect(payload.cc).toEqual(['a@acme.com', 'b@acme.com']);
+      expect(payload.bcc).toEqual(['hidden@acme.com']);
     });
 
-    it('returns a bare mailto when no subject/body present', async () => {
-      const result = await service.buildMailto({ to: 'client@acme.com' });
-      expect(result.mailto).toBe('mailto:client@acme.com');
+    it('sends an email with empty subject/body when none provided', async () => {
+      send.mockResolvedValue({
+        sent: true,
+        messageId: null,
+        recipient: 'client@acme.com',
+        accepted: ['client@acme.com'],
+        rejected: [],
+      });
+
+      await service.sendEmail({ to: 'client@acme.com' });
+
+      const payload = send.mock.calls[0]?.[0];
+      expect(payload.to).toBe('client@acme.com');
+      expect(payload.subject).toBe('');
+      expect(payload.body).toBe('');
     });
   });
 });

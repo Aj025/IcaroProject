@@ -25,7 +25,7 @@ export class EmailTemplateKeyParam {
   key!: string;
 }
 
-export class BuildMailtoDto {
+export class SendEmailDto {
   @IsEmail()
   to!: string;
 

@@ -14,13 +14,13 @@ export interface EmailTemplateListResponse {
   templates: EmailTemplateEntity[];
 }
 
-export interface MailtoResponse {
-  mailto: string;
+export interface SentEmailResponse {
+  sent: boolean;
+  messageId: string | null;
   recipient: string;
-  cc: string[];
-  bcc: string[];
-  subject: string;
-  body: string;
+  accepted: string[];
+  rejected: string[];
+  note?: string;
 }
 
 export interface ResetEmailTemplateResponse extends EmailTemplateEntity {

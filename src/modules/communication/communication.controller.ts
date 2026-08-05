@@ -16,7 +16,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator.js';
 import { CommunicationService } from './communication.service.js';
 import {
-  BuildMailtoDto,
+  SendEmailDto,
   EmailTemplateKeyParam,
   UpdateEmailTemplateDto,
 } from './dto/communication.dto.js';
@@ -26,10 +26,10 @@ import {
 export class CommunicationController {
   constructor(private readonly communicationService: CommunicationService) {}
 
-  @Post('emails/mailto')
+  @Post('emails/send')
   @HttpCode(HttpStatus.OK)
-  buildMailto(@Body() dto: BuildMailtoDto) {
-    return this.communicationService.buildMailto(dto);
+  sendEmail(@Body() dto: SendEmailDto) {
+    return this.communicationService.sendEmail(dto);
   }
 
   @Get('email-templates')
