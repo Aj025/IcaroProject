@@ -158,6 +158,20 @@ model SupplierDocument {
   @@map("supplier_documents")
 }
 
+model AppEmail {
+  id       String @id @default(cuid())
+  tenantId String
+
+  email String
+  type  String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("app_emails")
+}
+
 model DropboxLink {
   id         String   @id @default(cuid())
   supplierId String

@@ -17,6 +17,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module.js';
 import { DropboxModule } from './modules/integrations/dropbox/dropbox.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { CommunicationModule } from './modules/communication/communication.module.js';
+import { EmailsModule } from './modules/emails/emails.module.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CommunicationModule } from './modules/communication/communication.modul
     DropboxModule,
     DashboardModule,
     CommunicationModule,
+    EmailsModule,
   ],
   controllers: [HealthController],
   providers: [

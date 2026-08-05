@@ -837,7 +837,108 @@ Merge duplicate suppliers.
 
 ---
 
+### Emails (App settings)
+
+App-level email addresses shared across the whole system (e.g. the estimator's address used for all suppliers). Each row is a single **email** with a free-form **type** (purpose) such as `Estimator`, `Quotes`, `Invoices`, or `defaultEmail`. Adding a new email is simply creating a new row in the `app_emails` table — no schema changes needed for new purposes.
+
+All endpoints require `Authorization: Bearer <jwt>`. Reading is available to all authenticated users; creating/editing/deleting is **admin-only** (`@Roles('admin')`).
+
+#### `GET /emails`
+
+List all app emails, ordered by `createdAt`.
+
+**Response (200):**
+```json
+{
+  "data": [
+    {
+      "id": "clx_email_01",
+      "email": "estimator@icaroprojects.com",
+      "type": "Estimator",
+      "createdAt": "2026-08-05T10:00:00Z",
+      "updatedAt": "2026-08-05T10:00:00Z"
+    },
+    {
+      "id": "clx_email_02",
+      "email": "info@icaroprojects.com",
+      "type": "defaultEmail",
+      "createdAt": "2026-08-05T11:00:00Z",
+      "updatedAt": "2026-08-05T11:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+#### `POST /emails`  (Admin only — `@Roles('admin')`)
+
+Add a new email address.
+
+```json
+{
+  "email": "estimator@icaroprojects.com",
+  "type": "Estimator"
+}
+```
+
+**Validation:**
+
+| Field | Rules |
+|---|---|
+| `email` | Required. `@IsEmail()`, max 160 chars. |
+| `type` | Optional. `@IsString()`, max 60 chars. Free-form purpose. Defaults to `""`. |
+
+**Response (201):** `AppEmailDto` (single object, same shape as list entries above).
+
+---
+
+#### `PATCH /emails/:id`  (Admin only — `@Roles('admin')`)
+
+Update an email address or its type. All fields optional (PATCH semantics).
+
+```json
+{
+  "email": "estimator@icaroprojects.com",
+  "type": "Estimator"
+}
+```
+
+- **404** if the email row does not exist.
+
+**Response (200):** `AppEmailDto`.
+
+---
+
+#### `DELETE /emails/:id`  (Admin only — `@Roles('admin')`)
+
+Remove an email address.
+
+- **404** if the email row does not exist.
+
+**Response (200):**
+```json
+{ "deleted": true }
+```
+
+---
+
+#### RBAC matrix (app emails)
+
+| Endpoint | Admin | Estimator | PM |
+|---|---|---|---|
+| `GET /emails` | ✅ | ✅ | ✅ |
+| `POST /emails` | ✅ | ❌ | ❌ |
+| `PATCH /emails/:id` | ✅ | ❌ | ❌ |
+| `DELETE /emails/:id` | ✅ | ❌ | ❌ |
+
+Each write logs an `AuditLog` entry with `entityType: "AppEmail"`, `entityId: <email id>`, and `field` one of `created`, `updated`, `deleted`.
+
+---
+
 ### Dropbox Upload
+
+#### `POST /suppliers/:id/dropbox/upload`
 
 #### `POST /suppliers/:id/dropbox/upload`
 
@@ -1317,6 +1418,18 @@ Unique: `[tenantId, userId]` · Index: `[tenantId]` · Table: `dashboard_catalog
 | description | String? |
 | uploadedBy | String |
 | createdAt | DateTime |
+
+### AppEmail
+| Field | Type |
+|---|---|
+| id | String (PK, cuid) |
+| tenantId | String |
+| email | String |
+| type | String | 
+| createdAt | DateTime |
+| updatedAt | DateTime |
+
+`type` is a free-form purpose (e.g. `"Estimator"`, `"Quotes"`, `"defaultEmail"`). Index: `[tenantId]`. Table: `app_emails`.
 
 ### DropboxToken
 | Field | Type |
