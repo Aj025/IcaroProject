@@ -88,11 +88,12 @@ export class DropboxService {
 
     await this.db.dropboxToken.upsert({
       where: {
-        id: (
-          await this.db.dropboxToken.findFirst({
-            where: { userId },
-          })
-        )?.id ?? '',
+        id:
+          (
+            await this.db.dropboxToken.findFirst({
+              where: { userId },
+            })
+          )?.id ?? '',
       },
       create: {
         tenantId: process.env.TENANT_ID ?? 'default',

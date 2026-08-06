@@ -1,10 +1,8 @@
+import { IsArray, ArrayMaxSize, IsString, IsIn } from 'class-validator';
 import {
-  IsArray,
-  ArrayMaxSize,
-  IsString,
-  IsIn,
-} from 'class-validator';
-import { WIDGET_CATALOG_IDS, MAX_WIDGETS } from '../constants/widget-catalog.js';
+  WIDGET_CATALOG_IDS,
+  MAX_WIDGETS,
+} from '../constants/widget-catalog.js';
 import { NoDuplicateStringsDecorator } from './validators/no-duplicate-strings.decorator.js';
 
 const WIDGET_ID_LIST = [...WIDGET_CATALOG_IDS];

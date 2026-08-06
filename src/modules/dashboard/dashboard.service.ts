@@ -5,10 +5,7 @@ import {
   DEFAULT_LAYOUT,
   type WidgetInstance,
 } from './constants/default-layout.js';
-import {
-  WIDGET_CATALOG,
-  isKnownWidgetId,
-} from './constants/widget-catalog.js';
+import { WIDGET_CATALOG, isKnownWidgetId } from './constants/widget-catalog.js';
 import type { SaveLayoutDto } from './dto/save-layout.dto.js';
 import type { UpdateCatalogConfigDto } from './dto/update-catalog-config.dto.js';
 import {
@@ -78,13 +75,13 @@ export class DashboardService {
           userId: user.id,
         },
       },
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+
       create: {
         tenantId: this.tenantId(),
         userId: user.id,
         widgets: widgets as any,
       },
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       update: { widgets: widgets as any },
     });
 
@@ -109,9 +106,7 @@ export class DashboardService {
     );
   }
 
-  async resetLayout(
-    user: AuthenticatedUser,
-  ): Promise<ResetLayoutResponseDto> {
+  async resetLayout(user: AuthenticatedUser): Promise<ResetLayoutResponseDto> {
     const existing = await this.db.dashboardLayout.findUnique({
       where: {
         tenantId_userId: {
@@ -152,7 +147,6 @@ export class DashboardService {
     dto: UpdateCatalogConfigDto,
     user: AuthenticatedUser,
   ): Promise<CatalogResponseDto> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
     await this.db.dashboardCatalogConfig.upsert({
       where: {
         tenantId_userId: {
@@ -160,13 +154,13 @@ export class DashboardService {
           userId: user.id,
         },
       },
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+
       create: {
         tenantId: this.tenantId(),
         userId: user.id,
         activeWidgetIds: dto.activeWidgetIds as any,
       },
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       update: { activeWidgetIds: dto.activeWidgetIds as any },
     });
 
@@ -174,7 +168,9 @@ export class DashboardService {
     return CatalogResponseDto.fromCatalog(catalog);
   }
 
-  async resetCatalogConfig(user: AuthenticatedUser): Promise<CatalogResponseDto> {
+  async resetCatalogConfig(
+    user: AuthenticatedUser,
+  ): Promise<CatalogResponseDto> {
     await this.db.dashboardCatalogConfig.deleteMany({
       where: {
         tenantId: this.tenantId(),

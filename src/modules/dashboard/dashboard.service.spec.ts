@@ -99,9 +99,7 @@ describe('DashboardService', () => {
       const result = await service.getLayout(mockUser);
       expect(result.widgets).toHaveLength(1);
       expect(result.widgets[0].id).toBe('cash-at-risk');
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('bad-id'),
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('bad-id'));
       warnSpy.mockRestore();
     });
 
@@ -143,10 +141,7 @@ describe('DashboardService', () => {
       db.auditLog.create.mockResolvedValue({});
       db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
 
-      const result = await service.saveLayout(
-        { widgets: saved } as any,
-        mockUser,
-      );
+      const result = await service.saveLayout({ widgets: saved }, mockUser);
 
       expect(db.dashboardLayout.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -166,7 +161,7 @@ describe('DashboardService', () => {
       db.auditLog.create.mockResolvedValue({});
       db.dashboardCatalogConfig.findUnique.mockResolvedValue(null);
 
-      await service.saveLayout({ widgets: saved } as any, mockUser);
+      await service.saveLayout({ widgets: saved }, mockUser);
 
       expect(db.auditLog.create).toHaveBeenCalledWith(
         expect.objectContaining({

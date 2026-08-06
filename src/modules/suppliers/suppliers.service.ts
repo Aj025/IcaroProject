@@ -49,7 +49,7 @@ export class SuppliersService {
       },
     });
 
-    return SupplierDetailDto.fromEntity(supplier as unknown as SupplierEntity);
+    return SupplierDetailDto.fromEntity(supplier);
   }
 
   async findAll(query: QuerySuppliersDto) {
@@ -104,7 +104,7 @@ export class SuppliersService {
 
     if (!supplier) throw new NotFoundException('Supplier not found');
 
-    return SupplierDetailDto.fromEntity(supplier as unknown as SupplierEntity);
+    return SupplierDetailDto.fromEntity(supplier);
   }
 
   async update(id: string, dto: UpdateSupplierDto) {
@@ -124,9 +124,11 @@ export class SuppliersService {
     if (dto.projectIds !== undefined) data.projectIds = dto.projectIds;
     if (dto.usedBefore !== undefined) data.usedBefore = dto.usedBefore;
     if (dto.ramsUrl !== undefined) data.ramsUrl = dto.ramsUrl;
-    if (dto.ramsExpiry !== undefined) data.ramsExpiry = new Date(dto.ramsExpiry);
+    if (dto.ramsExpiry !== undefined)
+      data.ramsExpiry = new Date(dto.ramsExpiry);
     if (dto.insuranceUrl !== undefined) data.insuranceUrl = dto.insuranceUrl;
-    if (dto.insuranceExpiry !== undefined) data.insuranceExpiry = new Date(dto.insuranceExpiry);
+    if (dto.insuranceExpiry !== undefined)
+      data.insuranceExpiry = new Date(dto.insuranceExpiry);
     if (dto.cisStatus !== undefined) data.cisStatus = dto.cisStatus;
     if (dto.cisExpiry !== undefined) data.cisExpiry = new Date(dto.cisExpiry);
 
@@ -136,7 +138,7 @@ export class SuppliersService {
       include: { documents: true, dropboxLinks: true },
     });
 
-    return SupplierDetailDto.fromEntity(updated as unknown as SupplierEntity);
+    return SupplierDetailDto.fromEntity(updated);
   }
 
   async softDelete(id: string, userId: string) {
@@ -169,7 +171,7 @@ export class SuppliersService {
       },
     });
 
-    return SupplierDetailDto.fromEntity(updated as unknown as SupplierEntity);
+    return SupplierDetailDto.fromEntity(updated);
   }
 
   async permanentDelete(id: string) {
@@ -208,15 +210,18 @@ export class SuppliersService {
       },
     });
 
-    return SupplierDetailDto.fromEntity(updated as unknown as SupplierEntity);
+    return SupplierDetailDto.fromEntity(updated);
   }
 
   async merge(dto: MergeSuppliersDto, userId: string) {
     const { primaryId, duplicateIds } = dto;
 
-    const primary = await this.db.supplier.findUnique({ where: { id: primaryId } });
+    const primary = await this.db.supplier.findUnique({
+      where: { id: primaryId },
+    });
     if (!primary) throw new NotFoundException('Primary supplier not found');
-    if (primary.isDeleted) throw new ConflictException('Primary supplier is archived');
+    if (primary.isDeleted)
+      throw new ConflictException('Primary supplier is archived');
 
     const duplicates = await this.db.supplier.findMany({
       where: { id: { in: duplicateIds } },
@@ -228,7 +233,8 @@ export class SuppliersService {
     }
 
     for (const dup of duplicates) {
-      if (dup.isDeleted) throw new ConflictException(`Duplicate ${dup.id} is archived`);
+      if (dup.isDeleted)
+        throw new ConflictException(`Duplicate ${dup.id} is archived`);
     }
 
     const allProjectIds = new Set(primary.projectIds);

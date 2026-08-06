@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Delete,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Delete, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../../../common/guards/auth.guard.js';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard.js';
 import { RolesGuard } from '../../../common/guards/roles.guard.js';
@@ -30,7 +24,12 @@ export class DropboxController {
     @Query('redirectUri') redirectUri: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.dropboxService.handleCallback(code, state, redirectUri, user.id);
+    return this.dropboxService.handleCallback(
+      code,
+      state,
+      redirectUri,
+      user.id,
+    );
   }
 
   @Delete()

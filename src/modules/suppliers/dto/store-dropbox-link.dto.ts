@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsNumber, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 import { DocumentCategory } from './upload-dropbox.dto.js';
 
 export class StoreDropboxLinkDto {

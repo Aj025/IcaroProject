@@ -21,7 +21,8 @@ export class NoDuplicateStrings implements ValidatorConstraintInterface {
   }
 
   defaultMessage(args: ValidationArguments): string {
-    const value = (args.object as Record<string, unknown>)[args.property] as string[] | undefined;
+    const value = (args.object as Record<string, unknown>)[args.property] as
+      string[] | undefined;
     const seen = new Set<string>();
     const duplicates: string[] = [];
     if (Array.isArray(value)) {
@@ -42,7 +43,9 @@ export class NoDuplicateStrings implements ValidatorConstraintInterface {
   }
 }
 
-export function NoDuplicateStringsDecorator(validationOptions?: ValidationOptions) {
+export function NoDuplicateStringsDecorator(
+  validationOptions?: ValidationOptions,
+) {
   return function (object: object, propertyName: string) {
     registerDecorator({
       target: object.constructor,

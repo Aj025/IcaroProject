@@ -135,8 +135,12 @@ export class SupplierDetailDto {
     dto.cisExpiry = toDateOrNull(entity.cisExpiry);
     dto.dropboxAccountId = entity.dropboxAccountId;
     dto.dropboxFolderPath = entity.dropboxFolderPath;
-    dto.documents = (entity.documents ?? []).map(SupplierDocumentDto.fromEntity);
-    dto.dropboxLinks = (entity.dropboxLinks ?? []).map(DropboxLinkDto.fromEntity);
+    dto.documents = (entity.documents ?? []).map(
+      SupplierDocumentDto.fromEntity,
+    );
+    dto.dropboxLinks = (entity.dropboxLinks ?? []).map(
+      DropboxLinkDto.fromEntity,
+    );
     dto.createdAt = toISOOrString(entity.createdAt)!;
     dto.updatedAt = toISOOrString(entity.updatedAt)!;
     return dto;

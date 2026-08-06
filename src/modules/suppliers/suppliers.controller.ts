@@ -73,19 +73,13 @@ export class SuppliersController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateSupplierDto,
-  ) {
+  update(@Param('id') id: string, @Body() dto: UpdateSupplierDto) {
     return this.suppliersService.update(id, dto);
   }
 
   @Delete(':id')
   @Roles('admin')
-  softDelete(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  softDelete(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.suppliersService.softDelete(id, user.id);
   }
 
@@ -97,10 +91,7 @@ export class SuppliersController {
 
   @Post(':id/restore')
   @Roles('admin')
-  restore(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  restore(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.suppliersService.restore(id, user.id);
   }
 
@@ -146,10 +137,7 @@ export class SuppliersController {
 
   @Delete(':id/dropbox/links/:linkId')
   @Roles('admin')
-  deleteLink(
-    @Param('id') id: string,
-    @Param('linkId') linkId: string,
-  ) {
+  deleteLink(@Param('id') id: string, @Param('linkId') linkId: string) {
     return this.dropboxService.deleteLink(id, linkId);
   }
 }

@@ -22,7 +22,8 @@ export class NoDuplicateWidgetIds implements ValidatorConstraintInterface {
   }
 
   defaultMessage(args: ValidationArguments): string {
-    const widgets = (args.object as { widgets?: WidgetInstance[] }).widgets ?? [];
+    const widgets =
+      (args.object as { widgets?: WidgetInstance[] }).widgets ?? [];
     const seen = new Set<string>();
     const duplicates: string[] = [];
     for (const w of widgets) {

@@ -18,7 +18,9 @@ export class SuppliersComplianceService {
     categories: string[] = ['RAMS', 'INSURANCE', 'CIS'],
   ): Promise<SupplierComplianceDto[]> {
     const now = new Date();
-    const windowEnd = new Date(now.getTime() + withinDays * 24 * 60 * 60 * 1000);
+    const windowEnd = new Date(
+      now.getTime() + withinDays * 24 * 60 * 60 * 1000,
+    );
 
     const suppliers = await this.db.supplier.findMany({
       where: { isDeleted: false },

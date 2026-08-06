@@ -75,13 +75,24 @@ export class MailService {
       text: dto.body,
     });
 
+    const rejected = info.rejected ?? [];
+
+    if (rejected.length > 0) {
+      this.logger.warn(
+        `Email send had rejected recipients -> ${rejected.join(', ')}`,
+      );
+    }
+
     return {
-      sent: true,
+      sent: rejected.length === 0,
       messageId: info.messageId ?? null,
       recipient: dto.to,
       accepted: info.accepted ?? [],
-      rejected: info.rejected ?? [],
-      note: undefined,
+      rejected,
+      note:
+        rejected.length > 0
+          ? `Some recipients were rejected: ${rejected.join(', ')}`
+          : undefined,
     };
   }
 }

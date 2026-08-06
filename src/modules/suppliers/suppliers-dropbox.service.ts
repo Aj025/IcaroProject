@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { DocumentCategory } from './dto/upload-dropbox.dto.js';
 import { StoreDropboxLinkDto } from './dto/store-dropbox-link.dto.js';
@@ -15,7 +19,17 @@ const ALLOWED_MIME_TYPES = [
   'text/csv',
 ];
 
-const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.heic', '.xlsx', '.csv'];
+const ALLOWED_EXTENSIONS = [
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.heic',
+  '.xlsx',
+  '.csv',
+];
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -27,7 +41,9 @@ export class SuppliersDropboxService {
     return this.prismaService.prisma;
   }
 
-  private async getDropboxToken(userId?: string): Promise<{ accessToken: string } | null> {
+  private async getDropboxToken(
+    userId?: string,
+  ): Promise<{ accessToken: string } | null> {
     const envToken = process.env.DROPBOX_ACCESS_TOKEN;
     if (envToken) return { accessToken: envToken };
 
@@ -77,7 +93,8 @@ export class SuppliersDropboxService {
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const folderPath = supplier.dropboxFolderPath ?? `/Suppliers/${supplier.company}/`;
+    const folderPath =
+      supplier.dropboxFolderPath ?? `/Suppliers/${supplier.company}/`;
     const dropboxPath = `${folderPath}${category}_${timestamp}_${file.originalname}`;
 
     let dropboxUrl: string;
@@ -178,7 +195,7 @@ export class SuppliersDropboxService {
       },
     });
 
-    await this.updateComplianceFields(supplierId, dto.category as DocumentCategory, dto.dropboxUrl);
+    await this.updateComplianceFields(supplierId, dto.category, dto.dropboxUrl);
 
     return DropboxLinkDto.fromEntity({
       id: link.id,
