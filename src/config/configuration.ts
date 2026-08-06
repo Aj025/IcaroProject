@@ -18,6 +18,7 @@ export default registerAs('app', () => ({
   },
   email: {
     apiKey: process.env.TRANSACTIONAL_EMAIL_API_KEY,
+    from: process.env.EMAIL_FROM ?? process.env.SMTP_FROM,
     smtp: {
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT

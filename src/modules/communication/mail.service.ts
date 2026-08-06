@@ -1,98 +1,123 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import nodemailer, { type Transporter } from 'nodemailer';
 import type { SendEmailDto } from './dto/communication.dto.js';
 import type { SentEmailResponse } from './dto/email-template-response.dto.js';
 
-interface SentMessageInfo {
-  messageId?: string;
-  accepted?: string[];
-  rejected?: string[];
-}
-
-interface SmtpConfig {
-  host?: string;
-  port?: number;
-  user?: string;
-  pass?: string;
+interface ResendConfig {
+  apiKey?: string;
   from?: string;
 }
+
+interface ResendSuccessBody {
+  id: string;
+}
+
+interface ResendErrorBody {
+  name?: string;
+  message?: string;
+}
+
+const RESEND_API_URL = 'https://api.resend.com/emails';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: Transporter<SentMessageInfo> | null = null;
 
   constructor(private readonly configService: ConfigService) {}
 
-  private get smtpConfig(): SmtpConfig {
-    return this.configService.get<SmtpConfig>('app.email.smtp') ?? {};
-  }
-
-  private get transport(): Transporter<SentMessageInfo> | null {
-    if (this.transporter) return this.transporter;
-
-    const smtp = this.smtpConfig;
-    if (!smtp.host) {
-      this.logger.warn(
-        'SMTP_HOST not configured. Emails will not be sent; check .env.',
-      );
-      return null;
-    }
-
-    const port = smtp.port ?? (smtp.user ? 587 : 25);
-    this.transporter = nodemailer.createTransport({
-      host: smtp.host,
-      port,
-      secure: port === 465,
-      auth: smtp.user ? { user: smtp.user, pass: smtp.pass ?? '' } : undefined,
-    }) as Transporter<SentMessageInfo>;
-    return this.transporter;
+  private get resendConfig(): ResendConfig {
+    return {
+      apiKey: this.configService.get<string>('app.email.apiKey'),
+      from: this.configService.get<string>('app.email.from'),
+    };
   }
 
   async send(dto: SendEmailDto): Promise<SentEmailResponse> {
-    const transport = this.transport;
+    const { apiKey, from } = this.resendConfig;
 
-    if (!transport) {
-      this.logger.warn(`Email send skipped (SMTP not configured) -> ${dto.to}`);
+    if (!apiKey) {
+      this.logger.warn(
+        `Email send skipped (RESEND_API_KEY not configured) -> ${dto.to}`,
+      );
       return {
         sent: false,
         messageId: null,
         recipient: dto.to,
         accepted: [],
         rejected: [dto.to],
-        note: 'SMTP is not configured',
+        note: 'Resend API key is not configured',
       };
     }
 
-    const smtp = this.smtpConfig;
-    const info: SentMessageInfo = await transport.sendMail({
-      from: smtp.from ?? smtp.user ?? undefined,
-      to: dto.to,
-      cc: dto.cc && dto.cc.length > 0 ? dto.cc : undefined,
-      bcc: dto.bcc && dto.bcc.length > 0 ? dto.bcc : undefined,
-      subject: dto.subject,
-      text: dto.body,
-    });
-
-    const rejected = info.rejected ?? [];
-
-    if (rejected.length > 0) {
+    if (!from) {
       this.logger.warn(
-        `Email send had rejected recipients -> ${rejected.join(', ')}`,
+        `Email send skipped (EMAIL_FROM not configured) -> ${dto.to}`,
       );
+      return {
+        sent: false,
+        messageId: null,
+        recipient: dto.to,
+        accepted: [],
+        rejected: [dto.to],
+        note: 'Sender address (EMAIL_FROM) is not configured',
+      };
     }
 
-    return {
-      sent: rejected.length === 0,
-      messageId: info.messageId ?? null,
-      recipient: dto.to,
-      accepted: info.accepted ?? [],
-      rejected,
-      note:
-        rejected.length > 0
-          ? `Some recipients were rejected: ${rejected.join(', ')}`
-          : undefined,
-    };
+    try {
+      const response = await fetch(RESEND_API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from,
+          to: [dto.to],
+          cc: dto.cc && dto.cc.length > 0 ? dto.cc : undefined,
+          bcc: dto.bcc && dto.bcc.length > 0 ? dto.bcc : undefined,
+          subject: dto.subject,
+          text: dto.body,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response
+          .json()
+          .catch(() => ({}))) as ResendErrorBody;
+        const reason = errorBody.message ?? `HTTP ${response.status}`;
+        this.logger.warn(`Resend rejected email -> ${dto.to}: ${reason}`);
+
+        return {
+          sent: false,
+          messageId: null,
+          recipient: dto.to,
+          accepted: [],
+          rejected: [dto.to],
+          note: `Resend error: ${reason}`,
+        };
+      }
+
+      const body = (await response.json()) as ResendSuccessBody;
+
+      return {
+        sent: true,
+        messageId: body.id ?? null,
+        recipient: dto.to,
+        accepted: [dto.to],
+        rejected: [],
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Resend request failed -> ${dto.to}: ${message}`);
+
+      return {
+        sent: false,
+        messageId: null,
+        recipient: dto.to,
+        accepted: [],
+        rejected: [dto.to],
+        note: `Resend request failed: ${message}`,
+      };
+    }
   }
 }
