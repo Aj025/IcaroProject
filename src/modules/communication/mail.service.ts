@@ -3,21 +3,20 @@ import { ConfigService } from '@nestjs/config';
 import type { SendEmailDto } from './dto/communication.dto.js';
 import type { SentEmailResponse } from './dto/email-template-response.dto.js';
 
-interface ResendConfig {
+interface BrevoConfig {
   apiKey?: string;
   from?: string;
 }
 
-interface ResendSuccessBody {
-  id: string;
+interface BrevoSuccessBody {
+  messageId?: string;
 }
 
-interface ResendErrorBody {
-  name?: string;
+interface BrevoErrorBody {
   message?: string;
 }
 
-const RESEND_API_URL = 'https://api.resend.com/emails';
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
 @Injectable()
 export class MailService {
@@ -25,19 +24,31 @@ export class MailService {
 
   constructor(private readonly configService: ConfigService) {}
 
-  private get resendConfig(): ResendConfig {
+  private get brevoConfig(): BrevoConfig {
     return {
       apiKey: this.configService.get<string>('app.email.apiKey'),
       from: this.configService.get<string>('app.email.from'),
     };
   }
 
+  private parseFrom(from: string): { email: string; name?: string } {
+    const match = /^(.+?)\s*<([^>]+)>$/.exec(from.trim());
+    if (match) {
+      return { name: match[1].trim(), email: match[2].trim() };
+    }
+    return { email: from.trim() };
+  }
+
+  private toBrevoRecipients(emails?: string[]): { email: string }[] {
+    return (emails ?? []).map((email) => ({ email: email.trim() }));
+  }
+
   async send(dto: SendEmailDto): Promise<SentEmailResponse> {
-    const { apiKey, from } = this.resendConfig;
+    const { apiKey, from } = this.brevoConfig;
 
     if (!apiKey) {
       this.logger.warn(
-        `Email send skipped (RESEND_API_KEY not configured) -> ${dto.to}`,
+        `Email send skipped (BREVO_API_KEY not configured) -> ${dto.to}`,
       );
       return {
         sent: false,
@@ -45,7 +56,7 @@ export class MailService {
         recipient: dto.to,
         accepted: [],
         rejected: [dto.to],
-        note: 'Resend API key is not configured',
+        note: 'Brevo API key is not configured',
       };
     }
 
@@ -64,28 +75,28 @@ export class MailService {
     }
 
     try {
-      const response = await fetch(RESEND_API_URL, {
+      const response = await fetch(BREVO_API_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          'api-key': apiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from,
-          to: [dto.to],
-          cc: dto.cc && dto.cc.length > 0 ? dto.cc : undefined,
-          bcc: dto.bcc && dto.bcc.length > 0 ? dto.bcc : undefined,
+          sender: this.parseFrom(from),
+          to: this.toBrevoRecipients([dto.to]),
+          cc: this.toBrevoRecipients(dto.cc),
+          bcc: this.toBrevoRecipients(dto.bcc),
           subject: dto.subject,
-          text: dto.body,
+          textContent: dto.body,
         }),
       });
 
       if (!response.ok) {
         const errorBody = (await response
           .json()
-          .catch(() => ({}))) as ResendErrorBody;
+          .catch(() => ({}))) as BrevoErrorBody;
         const reason = errorBody.message ?? `HTTP ${response.status}`;
-        this.logger.warn(`Resend rejected email -> ${dto.to}: ${reason}`);
+        this.logger.warn(`Brevo rejected email -> ${dto.to}: ${reason}`);
 
         return {
           sent: false,
@@ -93,22 +104,22 @@ export class MailService {
           recipient: dto.to,
           accepted: [],
           rejected: [dto.to],
-          note: `Resend error: ${reason}`,
+          note: `Brevo error: ${reason}`,
         };
       }
 
-      const body = (await response.json()) as ResendSuccessBody;
+      const body = (await response.json()) as BrevoSuccessBody;
 
       return {
         sent: true,
-        messageId: body.id ?? null,
+        messageId: body.messageId ?? null,
         recipient: dto.to,
         accepted: [dto.to],
         rejected: [],
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Resend request failed -> ${dto.to}: ${message}`);
+      this.logger.error(`Brevo request failed -> ${dto.to}: ${message}`);
 
       return {
         sent: false,
@@ -116,7 +127,7 @@ export class MailService {
         recipient: dto.to,
         accepted: [],
         rejected: [dto.to],
-        note: `Resend request failed: ${message}`,
+        note: `Brevo request failed: ${message}`,
       };
     }
   }

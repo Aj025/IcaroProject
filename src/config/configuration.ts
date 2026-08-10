@@ -17,7 +17,7 @@ export default registerAs('app', () => ({
     apiKey: process.env.CLAUDE_API_KEY,
   },
   email: {
-    apiKey: process.env.TRANSACTIONAL_EMAIL_API_KEY,
+    apiKey: process.env.BREVO_API_KEY,
     from: process.env.EMAIL_FROM ?? process.env.SMTP_FROM,
     smtp: {
       host: process.env.SMTP_HOST,
