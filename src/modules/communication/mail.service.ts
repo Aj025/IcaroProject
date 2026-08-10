@@ -84,8 +84,8 @@ export class MailService {
         body: JSON.stringify({
           sender: this.parseFrom(from),
           to: this.toBrevoRecipients([dto.to]),
-          cc: this.toBrevoRecipients(dto.cc),
-          bcc: this.toBrevoRecipients(dto.bcc),
+          cc: dto.cc && dto.cc.length > 0 ? this.toBrevoRecipients(dto.cc) : undefined,
+          bcc: dto.bcc && dto.bcc.length > 0 ? this.toBrevoRecipients(dto.bcc) : undefined,
           subject: dto.subject,
           textContent: dto.body,
         }),
