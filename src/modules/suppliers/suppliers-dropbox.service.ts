@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { DropboxService } from '../integrations/dropbox/dropbox.service.js';
 import { DocumentCategory } from './dto/upload-dropbox.dto.js';
 import { StoreDropboxLinkDto } from './dto/store-dropbox-link.dto.js';
 import { DropboxLinkDto } from './dto/supplier-response.dto.js';
@@ -35,7 +36,10 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 @Injectable()
 export class SuppliersDropboxService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    private dropboxService: DropboxService,
+  ) {}
 
   private get db() {
     return this.prismaService.prisma;
@@ -44,19 +48,9 @@ export class SuppliersDropboxService {
   private async getDropboxToken(
     userId?: string,
   ): Promise<{ accessToken: string } | null> {
-    const envToken = process.env.DROPBOX_ACCESS_TOKEN;
-    if (envToken) return { accessToken: envToken };
-
-    if (!userId) return null;
-
-    const dbToken = await this.db.dropboxToken.findFirst({
-      where: { userId, disconnectedAt: null },
-      orderBy: { connectedAt: 'desc' },
-    });
-
-    if (!dbToken) return null;
-
-    return { accessToken: dbToken.accessToken };
+    const accessToken = await this.dropboxService.getValidAccessToken(userId);
+    if (!accessToken) return null;
+    return { accessToken };
   }
 
   async uploadFile(

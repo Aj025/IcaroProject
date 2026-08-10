@@ -1,12 +1,158 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service.js';
+
+interface TokenCacheEntry {
+  accessToken: string;
+  expiresAt: number;
+}
+
+interface RefreshedToken {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: number;
+}
+
+const DROPBOX_TOKEN_URL = 'https://api.dropbox.com/oauth2/token';
 
 @Injectable()
 export class DropboxService {
+  private readonly logger = new Logger(DropboxService.name);
+  private envTokenCache: TokenCacheEntry | null = null;
+
   constructor(private prismaService: PrismaService) {}
 
   private get db() {
     return this.prismaService.prisma;
+  }
+
+  async getValidAccessToken(userId?: string): Promise<string | null> {
+    const envToken = process.env.DROPBOX_ACCESS_TOKEN;
+    if (envToken) {
+      return this.cachedEnvAccessToken(envToken);
+    }
+
+    if (!userId) return null;
+
+    const token = await this.db.dropboxToken.findFirst({
+      where: { userId, disconnectedAt: null },
+      orderBy: { connectedAt: 'desc' },
+    });
+    if (!token) return null;
+
+    const isExpired =
+      token.tokenExpiry === null || token.tokenExpiry.getTime() <= Date.now();
+
+    if (isExpired && token.refreshToken) {
+      const refreshed = await this.refreshDbAccessToken(
+        token.id,
+        token.refreshToken,
+      );
+      if (refreshed) return refreshed;
+    }
+
+    return token.accessToken;
+  }
+
+  private async cachedEnvAccessToken(envToken: string): Promise<string> {
+    if (this.envTokenCache && this.envTokenCache.expiresAt > Date.now()) {
+      return this.envTokenCache.accessToken;
+    }
+
+    const envRefreshToken = process.env.DROPBOX_REFRESH_TOKEN;
+    const clientId = process.env.DROPBOX_CLIENT_ID;
+    const clientSecret = process.env.DROPBOX_CLIENT_SECRET;
+    if (!envRefreshToken || !clientId || !clientSecret) {
+      return envToken;
+    }
+
+    const refreshed = await this.exchangeRefreshToken(
+      envRefreshToken,
+      clientId,
+      clientSecret,
+    );
+    if (refreshed) {
+      this.envTokenCache = {
+        accessToken: refreshed.accessToken,
+        expiresAt: refreshed.expiresAt,
+      };
+      return refreshed.accessToken;
+    }
+
+    return envToken;
+  }
+
+  private async refreshDbAccessToken(
+    tokenId: string,
+    refreshToken: string,
+  ): Promise<string | null> {
+    const clientId = process.env.DROPBOX_CLIENT_ID;
+    const clientSecret = process.env.DROPBOX_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      this.logger.warn(
+        'Dropbox token refresh skipped - client id/secret not configured',
+      );
+      return null;
+    }
+
+    const refreshed = await this.exchangeRefreshToken(
+      refreshToken,
+      clientId,
+      clientSecret,
+    );
+    if (!refreshed) return null;
+
+    await this.db.dropboxToken.update({
+      where: { id: tokenId },
+      data: {
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken ?? undefined,
+        tokenExpiry: new Date(refreshed.expiresAt),
+      },
+    });
+
+    return refreshed.accessToken;
+  }
+
+  private async exchangeRefreshToken(
+    refreshToken: string,
+    clientId: string,
+    clientSecret: string,
+  ): Promise<RefreshedToken | null> {
+    try {
+      const response = await fetch(DROPBOX_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
+      });
+
+      if (!response.ok) {
+        this.logger.warn(
+          `Dropbox token refresh refused: HTTP ${response.status}`,
+        );
+        return null;
+      }
+
+      const data = (await response.json()) as {
+        access_token: string;
+        expires_in?: number;
+        refresh_token?: string;
+      };
+
+      return {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresAt: Date.now() + (data.expires_in ?? 14400) * 1000,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Dropbox token refresh failed: ${message}`);
+      return null;
+    }
   }
 
   async getAuthUrl(redirectUri: string): Promise<string> {
